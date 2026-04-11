@@ -5,6 +5,29 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/)를 따르고,
 버전 관리는 [Semantic Versioning](https://semver.org/)을 따릅니다.
 
+## [0.2.0] - 2026-04-11
+
+### Added
+
+- SPEC-UI-001: Deskflow 위젯 시스템 구현
+  - Clock 위젯: 1초 갱신 시계, 한국어 날짜, 시간대별 인사말
+  - SearchBar 위젯: Google 검색, 빈 검색어 무시
+  - BookmarkCard 위젯: 카테고리별 2열 링크 그리드, 편집 모달
+  - TodoWidget: 할 일 추가/토글/삭제, 미완료 수 표시
+  - NotesWidget: 600ms 디바운스 자동 저장
+  - electron-store IPC 스토리지 브릿지 (storage:get / storage:set)
+  - Zustand 5.x 상태 관리 (bookmarkStore, todoStore, themeStore)
+  - CSS 변수 테마 시스템 (다크: #0f1117, 라이트 모드)
+
+### Quality Gates
+
+- `npm test --run`: 62 tests PASS
+- `npm run typecheck`: 0 errors PASS
+- `npm run lint`: 0 errors PASS
+- Code coverage: 85%+ achieved
+
+---
+
 ## [0.1.0] - 2026-04-11
 
 ### Added

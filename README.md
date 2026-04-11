@@ -64,13 +64,32 @@ npm run build
 ```
 src/
 ├── main/          # Electron 메인 프로세스 (BrowserWindow, IPC)
-│   └── index.ts
+│   ├── index.ts
+│   └── ipc/       # IPC 핸들러
+│       └── storage.ts
 ├── preload/       # 프리로드 스크립트 (contextBridge)
 │   └── index.ts
 └── renderer/      # React 렌더러 프로세스
     ├── index.html
     ├── main.tsx
     ├── App.tsx
+    ├── components/ # 위젯 컴포넌트
+    │   ├── Clock/
+    │   ├── SearchBar/
+    │   ├── BookmarkCard/
+    │   ├── EditModal/
+    │   ├── TodoWidget/
+    │   └── NotesWidget/
+    ├── stores/    # Zustand 상태 관리
+    │   ├── bookmarkStore.ts
+    │   ├── todoStore.ts
+    │   └── themeStore.ts
+    ├── styles/    # 스타일 및 테마
+    │   ├── themes.ts
+    │   └── globals.css
+    ├── types/     # TypeScript 타입
+    │   ├── index.ts
+    │   └── electron.d.ts
     └── __tests__/
         └── App.test.tsx
 ```
@@ -90,9 +109,11 @@ electron-vite의 3-프로세스 구조를 따릅니다.
 - [x] SPEC-DESKFLOW-001: 프로젝트 스캐폴딩 (v0.1.0)
   - electron-vite 5.0.0 + React 19 + TypeScript 5.7 빌드 환경
   - Vitest 스모크 테스트, ESLint 9 flat config, Prettier
-- [ ] 위젯 구현 (Clock, SearchBar, BookmarkCard, TodoWidget, NotesWidget)
-- [ ] electron-store IPC 통신
-- [ ] CSS 변수/테마 시스템 (다크/라이트)
+- [x] SPEC-UI-001: Deskflow 위젯 시스템 (v0.2.0)
+  - [x] 위젯 구현 (Clock, SearchBar, BookmarkCard, TodoWidget, NotesWidget)
+  - [x] electron-store IPC 통신
+  - [x] CSS 변수/테마 시스템 (다크/라이트 모드)
+  - 62개 테스트 통과, TypeScript 0 오류, ESLint 0 오류
 - [ ] electron-builder 패키징
 
 ## 라이선스

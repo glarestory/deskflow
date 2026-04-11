@@ -1,5 +1,6 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
+import { registerStorageHandlers } from './ipc/storage'
 
 // @MX:NOTE: [AUTO] Renderer 로딩 전략 — dev 모드는 ELECTRON_RENDERER_URL(electron-vite HMR), prod는 빌드된 index.html
 function createWindow(): void {
@@ -21,6 +22,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  registerStorageHandlers(ipcMain)
   createWindow()
 
   app.on('activate', () => {
