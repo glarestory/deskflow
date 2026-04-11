@@ -58,6 +58,11 @@ npm run build
 | `npm run lint` | ESLint 검사 |
 | `npm run format` | Prettier 포맷팅 |
 | `npm run typecheck` | TypeScript 타입 검사 |
+| `npm run dist` | 프로덕션 인스톨러 패키징 (모든 플랫폼) |
+| `npm run dist:mac` | macOS DMG 패키징 |
+| `npm run dist:win` | Windows NSIS 패키징 |
+| `npm run dist:linux` | Linux deb/AppImage 패키징 |
+| `npm run dist:dir` | 언패키지 앱 (테스트용) |
 
 ## 프로젝트 구조
 
@@ -114,7 +119,7 @@ electron-vite의 3-프로세스 구조를 따릅니다.
   - [x] electron-store IPC 통신
   - [x] CSS 변수/테마 시스템 (다크/라이트 모드)
   - 62개 테스트 통과, TypeScript 0 오류, ESLint 0 오류
-- [ ] electron-builder 패키징
+- [x] SPEC-PKG-001: electron-builder 패키징 (v0.3.0)
 
 ## 라이선스
 

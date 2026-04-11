@@ -13,7 +13,12 @@
     "test:coverage": "vitest --coverage",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dist": "npm run build && electron-builder",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:dir": "npm run build && electron-builder --dir"
   },
   "dependencies": {
     "react": "^19.0.0",

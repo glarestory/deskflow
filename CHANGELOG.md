@@ -5,6 +5,18 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/)를 따르고,
 버전 관리는 [Semantic Versioning](https://semver.org/)을 따릅니다.
 
+## [0.3.0] - 2026-04-11
+
+### Added
+
+- SPEC-PKG-001: electron-builder 패키징 설정
+  - `electron-builder.yml`: macOS(DMG), Windows(NSIS), Linux(deb/AppImage) 멀티 플랫폼 설정
+  - npm scripts: `dist`, `dist:mac`, `dist:win`, `dist:linux`, `dist:dir`
+  - `resources/icon.png`: 플레이스홀더 앱 아이콘
+  - `npm run dist:dir` 검증 완료 (linux-unpacked 생성)
+
+---
+
 ## [0.2.0] - 2026-04-11
 
 ### Added
