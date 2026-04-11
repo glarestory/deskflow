@@ -2,6 +2,7 @@
 // @MX:SPEC: SPEC-UI-001
 import { create } from 'zustand'
 import type { Todo } from '../types'
+import { storage } from '../lib/storage'
 
 const uid = () => Math.random().toString(36).slice(2, 9)
 
@@ -26,7 +27,7 @@ export const useTodoStore = create<TodoState>((set, get) => ({
 
   loadTodos: async () => {
     try {
-      const result = await window.storage.get('hub-todos')
+      const result = await storage.get('hub-todos')
       const todos = result.value ? (JSON.parse(result.value) as Todo[]) : DEFAULT_TODOS
       set({ todos, loaded: true })
     } catch {
@@ -40,7 +41,7 @@ export const useTodoStore = create<TodoState>((set, get) => ({
     }))
     const { loaded, todos } = get()
     if (loaded) {
-      void window.storage.set('hub-todos', JSON.stringify(todos))
+      void storage.set('hub-todos', JSON.stringify(todos))
     }
   },
 
@@ -50,7 +51,7 @@ export const useTodoStore = create<TodoState>((set, get) => ({
     }))
     const { loaded, todos } = get()
     if (loaded) {
-      void window.storage.set('hub-todos', JSON.stringify(todos))
+      void storage.set('hub-todos', JSON.stringify(todos))
     }
   },
 
@@ -60,7 +61,7 @@ export const useTodoStore = create<TodoState>((set, get) => ({
     }))
     const { loaded, todos } = get()
     if (loaded) {
-      void window.storage.set('hub-todos', JSON.stringify(todos))
+      void storage.set('hub-todos', JSON.stringify(todos))
     }
   },
 }))

@@ -2,6 +2,7 @@
 // @MX:SPEC: SPEC-UI-001
 import { create } from 'zustand'
 import type { ThemeMode } from '../types'
+import { storage } from '../lib/storage'
 
 interface ThemeState {
   mode: ThemeMode
@@ -16,7 +17,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
 
   loadTheme: async () => {
     try {
-      const result = await window.storage.get('hub-theme')
+      const result = await storage.get('hub-theme')
       const mode = result.value ? (JSON.parse(result.value) as ThemeMode) : 'dark'
       set({ mode, loaded: true })
     } catch {
@@ -29,7 +30,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     set({ mode: newMode })
     const { loaded } = get()
     if (loaded) {
-      void window.storage.set('hub-theme', JSON.stringify(newMode))
+      void storage.set('hub-theme', JSON.stringify(newMode))
     }
   },
 }))

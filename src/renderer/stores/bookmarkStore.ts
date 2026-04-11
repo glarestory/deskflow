@@ -3,6 +3,7 @@
 // @MX:SPEC: SPEC-UI-001
 import { create } from 'zustand'
 import type { Bookmark } from '../types'
+import { storage } from '../lib/storage'
 
 export const DEFAULT_BOOKMARKS: Bookmark[] = [
   {
@@ -66,7 +67,7 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
 
   loadBookmarks: async () => {
     try {
-      const result = await window.storage.get('hub-bookmarks')
+      const result = await storage.get('hub-bookmarks')
       const bookmarks = result.value ? (JSON.parse(result.value) as Bookmark[]) : DEFAULT_BOOKMARKS
       set({ bookmarks, loaded: true })
     } catch {
@@ -78,7 +79,7 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
     set((state) => ({ bookmarks: [...state.bookmarks, bookmark] }))
     const { loaded, bookmarks } = get()
     if (loaded) {
-      void window.storage.set('hub-bookmarks', JSON.stringify(bookmarks))
+      void storage.set('hub-bookmarks', JSON.stringify(bookmarks))
     }
   },
 
@@ -88,7 +89,7 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
     }))
     const { loaded, bookmarks } = get()
     if (loaded) {
-      void window.storage.set('hub-bookmarks', JSON.stringify(bookmarks))
+      void storage.set('hub-bookmarks', JSON.stringify(bookmarks))
     }
   },
 
@@ -98,7 +99,7 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
     }))
     const { loaded, bookmarks } = get()
     if (loaded) {
-      void window.storage.set('hub-bookmarks', JSON.stringify(bookmarks))
+      void storage.set('hub-bookmarks', JSON.stringify(bookmarks))
     }
   },
 }))

@@ -51,7 +51,9 @@ npm run build
 | 명령 | 설명 |
 |------|------|
 | `npm run dev` | 개발 서버 + Electron 앱 실행 (HMR 포함) |
+| `npm run dev:web` | 웹 개발 서버 실행 (브라우저, HMR) |
 | `npm run build` | 프로덕션 빌드 (`out/` 생성) |
+| `npm run build:web` | 웹 정적 파일 빌드 (`web-dist/` 생성) |
 | `npm run preview` | 빌드된 앱 미리보기 |
 | `npm test` | Vitest 테스트 실행 |
 | `npm run test:coverage` | 커버리지 리포트 생성 |
@@ -85,6 +87,8 @@ src/
     │   ├── EditModal/
     │   ├── TodoWidget/
     │   └── NotesWidget/
+    ├── lib/       # 유틸리티 라이브러리
+    │   └── storage.ts # Electron IPC / localStorage 어댑터
     ├── stores/    # Zustand 상태 관리
     │   ├── bookmarkStore.ts
     │   ├── todoStore.ts
@@ -120,6 +124,7 @@ electron-vite의 3-프로세스 구조를 따릅니다.
   - [x] CSS 변수/테마 시스템 (다크/라이트 모드)
   - 62개 테스트 통과, TypeScript 0 오류, ESLint 0 오류
 - [x] SPEC-PKG-001: electron-builder 패키징 (v0.3.0)
+- [x] SPEC-WEB-001: 웹 배포 지원 (v0.4.0)
 
 ## 라이선스
 

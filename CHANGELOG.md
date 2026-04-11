@@ -5,6 +5,22 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/)를 따르고,
 버전 관리는 [Semantic Versioning](https://semver.org/)을 따릅니다.
 
+## [0.4.0] - 2026-04-12
+
+### Added
+
+- SPEC-WEB-001: 웹 배포 지원
+  - `src/renderer/lib/storage.ts`: Electron IPC / localStorage 자동 감지 어댑터
+  - `vite.web.config.ts`: 브라우저 전용 Vite 빌드 설정
+  - npm scripts: `dev:web` (개발 서버), `build:web` (정적 빌드 → web-dist/)
+  - Electron 앱과 웹 브라우저 동시 지원
+
+### Changed
+
+- `bookmarkStore`, `todoStore`, `themeStore`, `NotesWidget`: window.storage 직접 호출 → storage 어댑터 사용
+
+---
+
 ## [0.3.0] - 2026-04-11
 
 ### Added

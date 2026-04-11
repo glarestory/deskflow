@@ -1,13 +1,14 @@
 // @MX:NOTE: [AUTO] NotesWidget — 600ms 디바운스 자동 저장, 마운트 시 로드, 언마운트 시 cleanup
 // @MX:SPEC: SPEC-UI-001
 import { useState, useEffect, useRef } from 'react'
+import { storage } from '../../lib/storage'
 
 export default function NotesWidget(): JSX.Element {
   const [notes, setNotes] = useState('')
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    window.storage.get('hub-notes').then((result) => {
+    storage.get('hub-notes').then((result) => {
       if (result.value !== null) {
         setNotes(result.value)
       }
@@ -26,7 +27,7 @@ export default function NotesWidget(): JSX.Element {
       clearTimeout(timerRef.current)
     }
     timerRef.current = setTimeout(() => {
-      void window.storage.set('hub-notes', val)
+      void storage.set('hub-notes', val)
     }, 600)
   }
 
