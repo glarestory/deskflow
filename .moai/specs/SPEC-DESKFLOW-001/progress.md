@@ -14,3 +14,5 @@
 - Phase 2.10 (Simplify) complete: 5 fixes applied (non-null assertion, eslint node globals, comments, empty array)
 - Phase 2.9 (MX Tag): @MX:NOTE added to createWindow in src/main/index.ts
 - Acceptance Criteria: S3 PASS, S4 PASS, S5 PASS, S6 PASS, S1/S2 manual verification required
+- Phase 3 (Sync) complete: README.md 생성, 초기 커밋 (31efc1c), sync-complete 태그 생성
+- SPEC Status: completed (2026-04-11)
