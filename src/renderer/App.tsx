@@ -1,9 +1,12 @@
-// @MX:NOTE: [AUTO] App 루트 컴포넌트 — 스토어 초기화, 레이아웃 조합, 테마 적용
-// @MX:SPEC: SPEC-UI-001
+// @MX:NOTE: [AUTO] App 루트 컴포넌트 — 스토어 초기화, 레이아웃 조합, 테마 적용, 인증 게이트
+// @MX:SPEC: SPEC-AUTH-001
 import { useEffect, useState } from 'react'
 import { useBookmarkStore } from './stores/bookmarkStore'
 import { useTodoStore } from './stores/todoStore'
 import { useThemeStore } from './stores/themeStore'
+import { useAuthStore } from './stores/authStore'
+import { setUserStorage } from './lib/storage'
+import { migrateLocalToFirestore } from './lib/migration'
 import { darkTheme, lightTheme } from './styles/themes'
 import Clock from './components/Clock/Clock'
 import SearchBar from './components/SearchBar/SearchBar'
@@ -11,22 +14,69 @@ import BookmarkCard from './components/BookmarkCard/BookmarkCard'
 import EditModal from './components/EditModal/EditModal'
 import TodoWidget from './components/TodoWidget/TodoWidget'
 import NotesWidget from './components/NotesWidget/NotesWidget'
+import LoginScreen from './components/LoginScreen/LoginScreen'
 import type { Category } from './types'
 
 const uid = () => Math.random().toString(36).slice(2, 9)
 
 export default function App(): JSX.Element {
+  const { user, loading: authLoading, initAuth, signOut } = useAuthStore()
   const { bookmarks, loaded: bmLoaded, loadBookmarks, addBookmark, updateBookmark, removeBookmark } = useBookmarkStore()
   const { loaded: todoLoaded, loadTodos } = useTodoStore()
   const { mode, loaded: themeLoaded, loadTheme, toggleMode } = useThemeStore()
 
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
 
+  // 인증 상태 구독 초기화
   useEffect(() => {
-    void loadBookmarks()
-    void loadTodos()
-    void loadTheme()
-  }, [loadBookmarks, loadTodos, loadTheme])
+    const unsubscribe = initAuth()
+    return unsubscribe
+  }, [initAuth])
+
+  // 인증 상태 변경 시 저장소 전환 및 데이터 로드
+  useEffect(() => {
+    if (authLoading) return
+
+    const setupAndLoad = async (): Promise<void> => {
+      if (user !== null) {
+        // 로그인: Firestore 저장소로 전환
+        setUserStorage(user.uid)
+        // 최초 로그인 시 로컬 데이터 마이그레이션
+        await migrateLocalToFirestore(user.uid)
+      } else {
+        // 로그아웃: 기본 저장소로 복귀
+        setUserStorage(null)
+      }
+      void loadBookmarks()
+      void loadTodos()
+      void loadTheme()
+    }
+
+    void setupAndLoad()
+  }, [user, authLoading, loadBookmarks, loadTodos, loadTheme])
+
+  // 인증 로딩 중
+  if (authLoading) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '100vh',
+          background: '#0f1117',
+          color: '#6b7094',
+        }}
+      >
+        로딩 중...
+      </div>
+    )
+  }
+
+  // 미로그인 상태
+  if (user === null) {
+    return <LoginScreen />
+  }
 
   const loaded = bmLoaded && todoLoaded && themeLoaded
   const theme = mode === 'dark' ? darkTheme : lightTheme
@@ -120,6 +170,34 @@ export default function App(): JSX.Element {
           </span>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          {/* 사용자 정보 및 로그아웃 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {user.photoURL !== null && (
+              <img
+                src={user.photoURL}
+                alt="프로필"
+                style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--border)' }}
+              />
+            )}
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {user.displayName ?? user.email ?? '사용자'}
+            </span>
+          </div>
+          <button
+            data-testid="logout-btn"
+            onClick={() => { void signOut() }}
+            style={{
+              padding: '7px 14px',
+              borderRadius: 10,
+              border: '1px solid var(--border)',
+              background: 'var(--card-bg)',
+              color: 'var(--text-muted)',
+              fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            로그아웃
+          </button>
           <button
             onClick={handleAddCategory}
             style={{

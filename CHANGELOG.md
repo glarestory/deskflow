@@ -5,6 +5,25 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/)를 따르고,
 버전 관리는 [Semantic Versioning](https://semver.org/)을 따릅니다.
 
+## [0.5.0] - 2026-04-12
+
+### Added
+
+- SPEC-AUTH-001: Firebase OAuth 로그인 + Firestore 동기화
+  - Google/GitHub 소셜 로그인 (Firebase Auth 12.x)
+  - 로그인 화면(LoginScreen): 다크 테마, 두 OAuth 버튼
+  - Firestore 데이터 동기화: bookmarks/todos/theme/notes → `users/{uid}/data/`
+  - 로컬 데이터 마이그레이션: 첫 로그인 시 localStorage → Firestore 자동 이관
+  - `setUserStorage(uid)`: 로그인/로그아웃 시 저장소 자동 전환
+  - `.env.example` 환경변수 템플릿 추가
+
+### Changed
+
+- `storage.ts`: Firestore 동적 라우팅 지원 (`setUserStorage`, `createUserStorage`)
+- `App.tsx`: 인증 게이트 추가 (미로그인 → LoginScreen, 로그인 → Hub)
+
+---
+
 ## [0.4.0] - 2026-04-12
 
 ### Added
