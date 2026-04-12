@@ -137,6 +137,13 @@ electron-vite의 3-프로세스 구조를 따릅니다.
 - [x] SPEC-PKG-001: electron-builder 패키징 (v0.3.0)
 - [x] SPEC-WEB-001: 웹 배포 지원 (v0.4.0)
 - [x] SPEC-AUTH-001: Firebase OAuth 로그인 + Firestore 동기화 (v0.5.0)
+- [x] SPEC-IMPORT-001: Chrome 북마크 가져오기 (v0.6.0)
+  - [x] Chrome Netscape Bookmark HTML 파싱 (DOMParser 기반)
+  - [x] 카테고리 이름 기반 이모지 자동 할당
+  - [x] 병합(merge) / 전체 교체(replace) 모드
+  - [x] 빈 폴더 자동 제외, 중복 URL 처리
+  - [x] ImportModal: 3단계 UI (파일 선택 → 미리보기 → 확인)
+  - 104개 테스트 통과, TypeScript 0 오류
 
 ## 라이선스
 

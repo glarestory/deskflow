@@ -12,6 +12,7 @@ import Clock from './components/Clock/Clock'
 import SearchBar from './components/SearchBar/SearchBar'
 import BookmarkCard from './components/BookmarkCard/BookmarkCard'
 import EditModal from './components/EditModal/EditModal'
+import ImportModal from './components/ImportModal/ImportModal'
 import TodoWidget from './components/TodoWidget/TodoWidget'
 import NotesWidget from './components/NotesWidget/NotesWidget'
 import LoginScreen from './components/LoginScreen/LoginScreen'
@@ -26,6 +27,7 @@ export default function App(): JSX.Element {
   const { mode, loaded: themeLoaded, loadTheme, toggleMode } = useThemeStore()
 
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [showImportModal, setShowImportModal] = useState(false)
 
   // 인증 상태 구독 초기화
   useEffect(() => {
@@ -213,6 +215,20 @@ export default function App(): JSX.Element {
             + 카테고리
           </button>
           <button
+            onClick={() => setShowImportModal(true)}
+            style={{
+              padding: '7px 14px',
+              borderRadius: 10,
+              border: '1px solid var(--border)',
+              background: 'var(--card-bg)',
+              color: 'var(--text-muted)',
+              fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            + 가져오기
+          </button>
+          <button
             data-testid="theme-toggle"
             onClick={toggleMode}
             style={{
@@ -290,6 +306,11 @@ export default function App(): JSX.Element {
           onDelete={handleDeleteCategory}
           onClose={() => setEditingCategory(null)}
         />
+      )}
+
+      {/* ImportModal */}
+      {showImportModal && (
+        <ImportModal onClose={() => setShowImportModal(false)} />
       )}
     </div>
   )

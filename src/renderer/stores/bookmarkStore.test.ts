@@ -75,4 +75,62 @@ describe('bookmarkStore', () => {
     expect(useBookmarkStore.getState().bookmarks.length).toBe(before - 1)
     expect(useBookmarkStore.getState().bookmarks.find((b) => b.id === first.id)).toBeUndefined()
   })
+
+  it('importBookmarks with replace mode replaces all bookmarks', async () => {
+    mockGet.mockResolvedValue({ value: null })
+    const { useBookmarkStore } = await import('./bookmarkStore')
+    await useBookmarkStore.getState().loadBookmarks()
+
+    const newCategories = [
+      { id: 'new-1', name: 'Imported', icon: '🔖', links: [{ id: 'nl1', name: 'Test', url: 'https://test.com' }] },
+    ]
+    useBookmarkStore.getState().importBookmarks(newCategories, 'replace')
+
+    expect(useBookmarkStore.getState().bookmarks).toEqual(newCategories)
+    expect(useBookmarkStore.getState().bookmarks.length).toBe(1)
+  })
+
+  it('importBookmarks with merge mode appends new categories', async () => {
+    mockGet.mockResolvedValue({ value: null })
+    const { useBookmarkStore } = await import('./bookmarkStore')
+    await useBookmarkStore.getState().loadBookmarks()
+
+    const before = useBookmarkStore.getState().bookmarks.length
+    const newCategories = [
+      { id: 'brand-new', name: '새 카테고리', icon: '📌', links: [{ id: 'nl1', name: 'Link', url: 'https://new.com' }] },
+    ]
+    useBookmarkStore.getState().importBookmarks(newCategories, 'merge')
+
+    expect(useBookmarkStore.getState().bookmarks.length).toBe(before + 1)
+    expect(useBookmarkStore.getState().bookmarks.find((b) => b.name === '새 카테고리')).toBeDefined()
+  })
+
+  it('importBookmarks with merge mode merges links into existing category (no duplicates)', async () => {
+    mockGet.mockResolvedValue({ value: null })
+    const { useBookmarkStore } = await import('./bookmarkStore')
+    await useBookmarkStore.getState().loadBookmarks()
+
+    // 기존에 있는 카테고리 이름을 사용
+    const existingCat = useBookmarkStore.getState().bookmarks[0]
+    const existingLinkCount = existingCat.links.length
+    const existingUrl = existingCat.links[0].url
+
+    const importedCategories = [
+      {
+        id: 'dup-cat',
+        name: existingCat.name, // 동일 이름
+        icon: '🔖',
+        links: [
+          { id: 'new-link', name: 'New Link', url: 'https://totally-new-url.com' },
+          { id: 'dup-link', name: 'Dup Link', url: existingUrl }, // 중복 URL
+        ],
+      },
+    ]
+    useBookmarkStore.getState().importBookmarks(importedCategories, 'merge')
+
+    const merged = useBookmarkStore.getState().bookmarks.find((b) => b.name === existingCat.name)
+    expect(merged).toBeDefined()
+    // 중복 URL은 제외하고 새 링크만 추가됨
+    expect(merged?.links.length).toBe(existingLinkCount + 1)
+  })
 })

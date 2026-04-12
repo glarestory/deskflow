@@ -5,6 +5,30 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/)를 따르고,
 버전 관리는 [Semantic Versioning](https://semver.org/)을 따릅니다.
 
+## [0.6.0] - 2026-04-11
+
+### Added
+
+- SPEC-IMPORT-001: Chrome 북마크 가져오기
+  - `src/renderer/lib/bookmarkParser.ts`: Chrome Netscape Bookmark HTML 파서 (DOMParser 기반, 외부 의존성 없음)
+  - `src/renderer/components/ImportModal/ImportModal.tsx`: 3단계 임포트 모달 (파일 선택 → 미리보기 → 병합/교체)
+  - `importBookmarks(categories, mode)` 액션: bookmarkStore 확장 (병합/전체 교체)
+  - `getEmojiForCategory(name)`: 카테고리 이름 키워드 기반 이모지 자동 매핑
+  - App.tsx: TopBar "+ 가져오기" 버튼 추가
+
+### Changed
+
+- `bookmarkStore.ts`: `importBookmarks` 액션 추가 (merge 모드: URL 중복 제거, replace 모드: 전체 교체)
+- `App.tsx`: ImportModal 상태 관리 및 렌더링 추가
+
+### Technical
+
+- 파서 동작: 빈 폴더 자동 제외, 병합 모드에서 동일 이름 카테고리에 링크 추가
+- 테스트: 104개 통과 / 17개 테스트 파일 (기존 81개 + 신규 23개)
+- 외부 의존성 없음: 브라우저 내장 DOMParser 활용 (jsdom 환경에서도 동작)
+
+---
+
 ## [0.5.0] - 2026-04-12
 
 ### Added

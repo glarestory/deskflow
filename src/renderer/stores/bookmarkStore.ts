@@ -59,6 +59,7 @@ interface BookmarkState {
   addBookmark: (bookmark: Bookmark) => void
   updateBookmark: (bookmark: Bookmark) => void
   removeBookmark: (id: string) => void
+  importBookmarks: (categories: Bookmark[], mode: 'merge' | 'replace') => void
 }
 
 export const useBookmarkStore = create<BookmarkState>((set, get) => ({
@@ -97,6 +98,38 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
     set((state) => ({
       bookmarks: state.bookmarks.filter((b) => b.id !== id),
     }))
+    const { loaded, bookmarks } = get()
+    if (loaded) {
+      void storage.set('hub-bookmarks', JSON.stringify(bookmarks))
+    }
+  },
+
+  importBookmarks: (categories, mode) => {
+    if (mode === 'replace') {
+      set({ bookmarks: categories })
+    } else {
+      // 병합: 동일 이름 카테고리가 있으면 링크를 추가, 없으면 새 카테고리 추가 (중복 URL 제거)
+      set((state) => {
+        const existingMap = new Map(state.bookmarks.map((b) => [b.name, b]))
+
+        for (const imported of categories) {
+          const existing = existingMap.get(imported.name)
+          if (existing !== undefined) {
+            const existingUrls = new Set(existing.links.map((l) => l.url))
+            const newLinks = imported.links.filter((l) => !existingUrls.has(l.url))
+            existingMap.set(imported.name, { ...existing, links: [...existing.links, ...newLinks] })
+          } else {
+            existingMap.set(imported.name, imported)
+          }
+        }
+
+        // 기존 순서 유지 + 새 카테고리 뒤에 추가
+        const existingNames = new Set(state.bookmarks.map((b) => b.name))
+        const updated = state.bookmarks.map((b) => existingMap.get(b.name) ?? b)
+        const appended = categories.filter((c) => !existingNames.has(c.name))
+        return { bookmarks: [...updated, ...appended] }
+      })
+    }
     const { loaded, bookmarks } = get()
     if (loaded) {
       void storage.set('hub-bookmarks', JSON.stringify(bookmarks))
