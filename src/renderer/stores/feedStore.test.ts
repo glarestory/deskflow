@@ -153,4 +153,37 @@ describe('feedStore', () => {
 
     expect(mockSet).toHaveBeenCalledWith('rss-feeds', expect.any(String))
   })
+
+  // ─── 재현 테스트 (버그 #1): loadFeeds 복원 ───────────────────────────
+  // 증상: 앱 종료 후 재오픈 시 피드 데이터가 사라짐.
+  // 원인 후보: loadFeeds가 storage에서 복원하지 않거나 호출되지 않음.
+  it('loadFeeds가 storage의 저장된 feeds를 state로 복원한다', async () => {
+    const savedFeeds = [
+      { id: 'f-saved-1', url: 'https://saved.com/rss', title: 'Saved Feed' },
+      { id: 'f-saved-2', url: 'https://another.com/rss', title: 'Another Feed' },
+    ]
+    mockGet.mockResolvedValue({ value: JSON.stringify(savedFeeds) })
+
+    const { useFeedStore } = await import('./feedStore')
+    // 초기 state는 빈 배열
+    expect(useFeedStore.getState().feeds).toHaveLength(0)
+
+    await useFeedStore.getState().loadFeeds()
+
+    const { feeds } = useFeedStore.getState()
+    expect(feeds).toHaveLength(2)
+    expect(feeds[0].id).toBe('f-saved-1')
+    expect(feeds[0].url).toBe('https://saved.com/rss')
+    expect(feeds[0].title).toBe('Saved Feed')
+    expect(feeds[1].id).toBe('f-saved-2')
+  })
+
+  it('loadFeeds가 storage에 저장된 값이 없으면 빈 배열 유지', async () => {
+    mockGet.mockResolvedValue({ value: null })
+
+    const { useFeedStore } = await import('./feedStore')
+    await useFeedStore.getState().loadFeeds()
+
+    expect(useFeedStore.getState().feeds).toHaveLength(0)
+  })
 })

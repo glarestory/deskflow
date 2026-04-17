@@ -138,6 +138,21 @@ vi.mock('../stores/viewModeStore', () => ({
   }),
 }))
 
+// feedStore 모킹 — 앱 mount 시 loadFeeds 호출 여부 검증용
+const mockLoadFeeds = vi.fn(() => Promise.resolve())
+vi.mock('../stores/feedStore', () => ({
+  useFeedStore: () => ({
+    feeds: [],
+    articles: [],
+    loading: false,
+    loadFeeds: mockLoadFeeds,
+    addFeed: vi.fn(),
+    removeFeed: vi.fn(),
+    refreshAll: vi.fn(),
+    fetchFeedArticles: vi.fn(),
+  }),
+}))
+
 // layoutStore 모킹
 const mockUpdateLayout = vi.fn()
 const mockResetLayout = vi.fn()
@@ -333,6 +348,20 @@ describe('App', () => {
     render(<App />)
     await waitFor(() => {
       expect(screen.getByTestId('pivot-mode-btn')).toBeInTheDocument()
+    })
+  })
+
+  // 재현 테스트 (버그 #1): FeedWidget 데이터가 앱 재시작 시 사라짐
+  // 원인: App.tsx의 setupAndLoad에서 useFeedStore.loadFeeds가 호출되지 않음
+  // 검증: 인증 후 loadFeeds가 정확히 한 번 호출되어야 한다
+  it('인증된 사용자 mount 시 feedStore.loadFeeds가 호출되어야 한다', async () => {
+    mockGet.mockResolvedValue({ value: null })
+
+    const { default: App } = await import('../App')
+    render(<App />)
+
+    await waitFor(() => {
+      expect(mockLoadFeeds).toHaveBeenCalled()
     })
   })
 })
