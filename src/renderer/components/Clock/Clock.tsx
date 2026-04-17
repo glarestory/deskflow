@@ -32,13 +32,21 @@ export default function Clock(): JSX.Element {
   const greeting = getGreeting(now.getHours())
 
   return (
-    <div style={{ textAlign: 'center', padding: '12px 0 4px' }}>
+    <div
+      style={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        textAlign: 'center',
+      }}
+    >
       <div
         style={{
-          fontSize: 22,
-          fontWeight: 700,
+          fontSize: 18,
+          fontWeight: 600,
           color: 'var(--text-primary)',
-          marginBottom: 2,
+          marginBottom: 4,
         }}
       >
         {greeting} 👋
@@ -46,7 +54,7 @@ export default function Clock(): JSX.Element {
       <div
         style={{
           fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 56,
+          fontSize: 48,
           fontWeight: 700,
           letterSpacing: -2,
           color: 'var(--text-primary)',
@@ -56,7 +64,7 @@ export default function Clock(): JSX.Element {
         {time}
         <span
           data-testid="clock-seconds"
-          style={{ fontSize: 24, opacity: 0.4, marginLeft: 4 }}
+          style={{ fontSize: 20, opacity: 0.4, marginLeft: 4 }}
         >
           {secs}
         </span>
@@ -64,7 +72,7 @@ export default function Clock(): JSX.Element {
       <div
         data-testid="clock-date"
         style={{
-          fontSize: 14,
+          fontSize: 13,
           color: 'var(--text-muted)',
           marginTop: 6,
         }}

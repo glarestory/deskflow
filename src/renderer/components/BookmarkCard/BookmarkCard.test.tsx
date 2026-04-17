@@ -9,8 +9,8 @@ const mockCategory: Category = {
   name: 'Work',
   icon: '💼',
   links: [
-    { id: 'l1', name: 'Gmail', url: 'https://mail.google.com' },
-    { id: 'l2', name: 'Drive', url: 'https://drive.google.com' },
+    { id: 'l1', name: 'Gmail', url: 'https://mail.google.com', tags: [] },
+    { id: 'l2', name: 'Drive', url: 'https://drive.google.com', tags: [] },
   ],
 }
 

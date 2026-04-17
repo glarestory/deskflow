@@ -1,7 +1,9 @@
 // @MX:NOTE: [AUTO] EditModal — 카테고리 및 링크 편집 모달, 저장/삭제/닫기 콜백
-// @MX:SPEC: SPEC-UI-001
+// @MX:SPEC: SPEC-UI-001, SPEC-BOOKMARK-003
 import { useState } from 'react'
 import type { Category, Link } from '../../types'
+import TagInput from '../TagInput/TagInput'
+import { useTagStore } from '../../stores/tagStore'
 
 const uid = () => Math.random().toString(36).slice(2, 9)
 
@@ -19,6 +21,8 @@ export default function EditModal({
   onClose,
 }: EditModalProps): JSX.Element {
   const [cat, setCat] = useState<Category>(JSON.parse(JSON.stringify(category)) as Category)
+  const allTags = useTagStore((s) => s.allTags)
+  const tagSuggestions = allTags.map((t) => t.tag)
 
   const updateLink = (idx: number, field: keyof Link, val: string) => {
     const links = [...cat.links]
@@ -26,8 +30,14 @@ export default function EditModal({
     setCat({ ...cat, links })
   }
 
+  const updateLinkTags = (idx: number, tags: string[]) => {
+    const links = [...cat.links]
+    links[idx] = { ...links[idx], tags }
+    setCat({ ...cat, links })
+  }
+
   const addLink = () => {
-    setCat({ ...cat, links: [...cat.links, { id: uid(), name: '', url: '' }] })
+    setCat({ ...cat, links: [...cat.links, { id: uid(), name: '', url: '', tags: [] }] })
   }
 
   const removeLink = (idx: number) => {
@@ -112,55 +122,64 @@ export default function EditModal({
           <div
             key={link.id}
             style={{
-              display: 'flex',
-              gap: 8,
-              marginBottom: 10,
-              alignItems: 'center',
+              marginBottom: 12,
+              padding: '8px 10px',
+              borderRadius: 10,
+              border: '1px solid var(--border)',
+              background: 'var(--bg)',
             }}
           >
-            <input
-              value={link.name}
-              onChange={(e) => updateLink(i, 'name', e.target.value)}
-              placeholder="이름"
-              style={{
-                flex: 1,
-                padding: '6px 10px',
-                borderRadius: 8,
-                border: '1px solid var(--border)',
-                background: 'var(--link-bg)',
-                color: 'var(--text-primary)',
-                fontSize: 13,
-                outline: 'none',
-              }}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
+              <input
+                value={link.name}
+                onChange={(e) => updateLink(i, 'name', e.target.value)}
+                placeholder="이름"
+                style={{
+                  flex: 1,
+                  padding: '6px 10px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  background: 'var(--link-bg)',
+                  color: 'var(--text-primary)',
+                  fontSize: 13,
+                  outline: 'none',
+                }}
+              />
+              <input
+                value={link.url}
+                onChange={(e) => updateLink(i, 'url', e.target.value)}
+                placeholder="URL"
+                style={{
+                  flex: 1.5,
+                  padding: '6px 10px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  background: 'var(--link-bg)',
+                  color: 'var(--text-primary)',
+                  fontSize: 13,
+                  outline: 'none',
+                }}
+              />
+              <button
+                onClick={() => removeLink(i)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  color: '#e74c3c',
+                  padding: 4,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            {/* SPEC-BOOKMARK-003: 링크별 태그 입력 */}
+            <TagInput
+              tags={link.tags ?? []}
+              onChange={(tags) => updateLinkTags(i, tags)}
+              suggestions={tagSuggestions}
             />
-            <input
-              value={link.url}
-              onChange={(e) => updateLink(i, 'url', e.target.value)}
-              placeholder="URL"
-              style={{
-                flex: 1.5,
-                padding: '6px 10px',
-                borderRadius: 8,
-                border: '1px solid var(--border)',
-                background: 'var(--link-bg)',
-                color: 'var(--text-primary)',
-                fontSize: 13,
-                outline: 'none',
-              }}
-            />
-            <button
-              onClick={() => removeLink(i)}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: 14,
-                color: '#e74c3c',
-                padding: 4,
-              }}
-            >
-              ✕
-            </button>
           </div>
         ))}
         <button

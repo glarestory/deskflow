@@ -1,7 +1,11 @@
 // @MX:NOTE: [AUTO] migration — 최초 로그인 시 localStorage 데이터를 Firestore로 마이그레이션
-// @MX:SPEC: SPEC-AUTH-001
+// @MX:NOTE: [AUTO] SPEC-BOOKMARK-003: backfillMissingTags — tags 없는 기존 링크에 자동 태그 채우기
+// @MX:NOTE: [AUTO] SPEC-UX-003: backfillMissingCreatedAt — createdAt 없는 기존 링크에 현재 시각 부여
+// @MX:SPEC: SPEC-AUTH-001, SPEC-BOOKMARK-003, SPEC-UX-003
 
 import { firestoreStorage } from './firestoreStorage'
+import type { Bookmark } from '../types'
+import { extractTags } from './extractTags'
 
 const MIGRATION_FLAG = 'hub-migrated'
 const DATA_KEYS = ['hub-bookmarks', 'hub-todos', 'hub-theme', 'hub-notes']
@@ -21,4 +25,42 @@ export const migrateLocalToFirestore = async (uid: string): Promise<void> => {
 
   // 마이그레이션 완료 플래그 저장
   localStorage.setItem(MIGRATION_FLAG, uid)
+}
+
+/**
+ * createdAt 필드가 없는 기존 링크에 현재 시각(Date.now())을 부여한다.
+ * - idempotent: 이미 createdAt이 있는 링크는 변경하지 않음
+ * - SPEC-UX-003: backfillMissingTags 패턴과 동일한 구조
+ */
+export function backfillMissingCreatedAt(bookmarks: Bookmark[]): Bookmark[] {
+  const now = Date.now()
+  return bookmarks.map((bookmark) => ({
+    ...bookmark,
+    links: bookmark.links.map((link) => {
+      // 이미 createdAt이 있으면 그대로 유지 (idempotent)
+      if (link.createdAt !== undefined) return link
+      return { ...link, createdAt: now }
+    }),
+  }))
+}
+
+/**
+ * tags 필드가 없거나 빈 배열인 기존 링크에 자동 태그를 채운다.
+ * - idempotent: 이미 태그가 있는 링크는 그대로 유지
+ * - tags 필드 없는 링크(legacy): 자동 태그 추출 후 할당
+ * - tags 빈 배열: 자동 태그로 채움
+ * - 자동+기존 태그 중복 제거 (EDGE-004)
+ */
+export function backfillMissingTags(bookmarks: Bookmark[]): Bookmark[] {
+  return bookmarks.map((bookmark) => ({
+    ...bookmark,
+    links: bookmark.links.map((link) => {
+      // tags 필드가 없거나(undefined) 빈 배열이면 자동 태그 추출
+      const existingTags: string[] = (link.tags as string[] | undefined) ?? []
+      const autoTags = extractTags(link.url)
+      // 기존 태그 + 자동 태그 병합 (중복 제거)
+      const merged = [...new Set([...existingTags, ...autoTags])]
+      return { ...link, tags: merged }
+    }),
+  }))
 }

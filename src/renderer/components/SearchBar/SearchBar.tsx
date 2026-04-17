@@ -12,6 +12,14 @@ export default function SearchBar(): JSX.Element {
   }
 
   return (
+    <div
+      style={{
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
     <form
       onSubmit={handleSubmit}
       style={{
@@ -22,8 +30,8 @@ export default function SearchBar(): JSX.Element {
         borderRadius: 14,
         padding: '0 16px',
         height: 48,
+        width: '100%',
         maxWidth: 560,
-        margin: '0 auto',
         transition: 'border-color .2s',
       }}
     >
@@ -46,5 +54,6 @@ export default function SearchBar(): JSX.Element {
         검색
       </button>
     </form>
+    </div>
   )
 }

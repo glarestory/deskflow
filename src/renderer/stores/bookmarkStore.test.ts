@@ -133,4 +133,63 @@ describe('bookmarkStore', () => {
     // 중복 URL은 제외하고 새 링크만 추가됨
     expect(merged?.links.length).toBe(existingLinkCount + 1)
   })
+
+  // SPEC-BOOKMARK-003: addLink 시 자동 태그 추출
+  it('addLink는 github URL에 자동으로 dev, code 태그를 부여해야 한다 (AC-001)', async () => {
+    mockGet.mockResolvedValue({ value: null })
+    const { useBookmarkStore } = await import('./bookmarkStore')
+    await useBookmarkStore.getState().loadBookmarks()
+
+    const catId = useBookmarkStore.getState().bookmarks[0].id
+    useBookmarkStore.getState().addLink(catId, {
+      id: 'new-link',
+      name: 'GitHub',
+      url: 'https://github.com/anthropics/claude',
+      tags: [],
+    })
+
+    const updatedCat = useBookmarkStore.getState().bookmarks.find((b) => b.id === catId)
+    const newLink = updatedCat?.links.find((l) => l.id === 'new-link')
+    expect(newLink?.tags).toContain('dev')
+    expect(newLink?.tags).toContain('code')
+  })
+
+  it('addLink는 매칭 없는 URL이면 수동 태그를 유지해야 한다 (AC-002)', async () => {
+    mockGet.mockResolvedValue({ value: null })
+    const { useBookmarkStore } = await import('./bookmarkStore')
+    await useBookmarkStore.getState().loadBookmarks()
+
+    const catId = useBookmarkStore.getState().bookmarks[0].id
+    useBookmarkStore.getState().addLink(catId, {
+      id: 'private-link',
+      name: 'Private',
+      url: 'https://my-private-site.internal',
+      tags: ['manual'],
+    })
+
+    const updatedCat = useBookmarkStore.getState().bookmarks.find((b) => b.id === catId)
+    const newLink = updatedCat?.links.find((l) => l.id === 'private-link')
+    // 자동 태그 없음, 수동 태그만 유지
+    expect(newLink?.tags).toContain('manual')
+  })
+
+  it('addLink는 자동+수동 태그 중복을 제거해야 한다 (EDGE-004)', async () => {
+    mockGet.mockResolvedValue({ value: null })
+    const { useBookmarkStore } = await import('./bookmarkStore')
+    await useBookmarkStore.getState().loadBookmarks()
+
+    const catId = useBookmarkStore.getState().bookmarks[0].id
+    // 수동으로 dev 추가했는데 github이라 자동으로도 dev 부여
+    useBookmarkStore.getState().addLink(catId, {
+      id: 'gh-link',
+      name: 'GitHub',
+      url: 'https://github.com',
+      tags: ['dev'],
+    })
+
+    const updatedCat = useBookmarkStore.getState().bookmarks.find((b) => b.id === catId)
+    const newLink = updatedCat?.links.find((l) => l.id === 'gh-link')
+    const devCount = newLink?.tags.filter((t) => t === 'dev').length
+    expect(devCount).toBe(1) // 중복 없이 단일 dev
+  })
 })

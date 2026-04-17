@@ -25,6 +25,7 @@ mem.prof
 # ===========================================
 build/
 dist/
+web-dist/
 *.egg-info/
 *.egg
 

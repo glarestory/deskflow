@@ -1,5 +1,83 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;700&display=swap');
 
+/* react-grid-layout 기본 스타일 */
+.react-grid-layout {
+  position: relative;
+  transition: height 200ms ease;
+}
+
+.react-grid-item {
+  transition: all 200ms ease;
+  transition-property: left, top, width, height;
+}
+
+.react-grid-item.cssTransforms {
+  transition-property: transform, width, height;
+}
+
+.react-grid-item.resizing {
+  transition: none;
+  z-index: 1;
+  will-change: width, height;
+}
+
+.react-grid-item.react-draggable-dragging {
+  transition: none;
+  z-index: 3;
+  will-change: transform;
+}
+
+.react-grid-item.dropping {
+  visibility: hidden;
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: var(--accent);
+  opacity: 0.15;
+  transition-duration: 100ms;
+  z-index: 2;
+  border-radius: 12px;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+}
+
+/* 리사이즈 핸들 스타일 */
+.react-grid-item > .react-resizable-handle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+}
+
+.react-grid-item > .react-resizable-handle::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 5px;
+  height: 5px;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  opacity: 0.5;
+}
+
+.react-grid-item > .react-resizable-handle.react-resizable-handle-se {
+  bottom: 0;
+  right: 0;
+  cursor: se-resize;
+}
+
+/* 위젯 드래그 핸들 스타일 */
+.widget-drag-handle {
+  cursor: grab;
+}
+
+.widget-drag-handle:active {
+  cursor: grabbing;
+}
+
 /* CSS Reset */
 *,
 *::before,
@@ -7,6 +85,21 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+/* Layout Foundation — SPEC-LAYOUT-002 Step 1
+ * html/body/#root의 높이 계층을 확립해 PivotLayout(100vh)과
+ * WidgetLayout(minHeight 100vh) 모두 일관된 컨테이너 위에서 동작하도록 보장.
+ * body/#root는 뷰포트 높이를 기본으로 하고, WidgetLayout 모드에서는
+ * 내부 콘텐츠가 커지면 body가 자연 스크롤된다.
+ */
+html,
+body {
+  height: 100%;
+}
+
+#root {
+  min-height: 100%;
 }
 
 /* Root CSS Variables (dark theme defaults) */
@@ -23,9 +116,13 @@
   --shadow: rgba(0, 0, 0, 0.25);
 }
 
-/* Scrollbar styles */
+/* Scrollbar styles — SPEC-LAYOUT-002 Step 3
+ * Windows/Linux Electron에서도 잡기 쉬운 10px로 확대.
+ * hover 시 강조색으로 변경해 상호작용 피드백 제공.
+ */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -34,11 +131,26 @@
 
 ::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 3px;
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+  background-clip: padding-box;
+  border: 2px solid transparent;
 }
 
 textarea::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
+  height: 6px;
+}
+
+/* Firefox 지원 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 
 ::placeholder {
@@ -49,4 +161,134 @@ body {
   font-family: 'Inter', 'Noto Sans KR', sans-serif;
   background: var(--bg);
   color: var(--text-primary);
+}
+
+/* ===== Command Palette — SPEC-UX-001 ===== */
+
+/* NFR-001: 전체 화면 오버레이 배경 (반투명) */
+.command-palette-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 15vh;
+  z-index: 1000;
+  /* NFR-003: fade 애니메이션 (200ms) */
+  animation: palette-fade-in 200ms ease;
+}
+
+/* NFR-003: 팔레트 모달 (scale 포함) */
+.command-palette {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 600px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  animation: palette-scale-in 200ms ease;
+}
+
+/* 입력 필드 */
+.command-palette-input {
+  width: 100%;
+  padding: 16px 20px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 16px;
+  font-family: inherit;
+  outline: none;
+}
+
+/* 결과 목록 */
+.command-palette-results {
+  list-style: none;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* 개별 결과 항목 */
+.command-palette-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: background 100ms ease;
+}
+
+.command-palette-item:hover,
+.command-palette-item.selected {
+  background: var(--link-hover);
+}
+
+.command-palette-item-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.command-palette-item-label {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-palette-item-category {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* 최근 검색 섹션 */
+.command-palette-recent {
+  padding: 8px 0;
+}
+
+.command-palette-section-label {
+  padding: 6px 20px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* 빈 상태 */
+.command-palette-empty {
+  padding: 24px 20px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* NFR-003: 애니메이션 keyframes */
+@keyframes palette-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes palette-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }

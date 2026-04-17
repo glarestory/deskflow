@@ -1,33 +1,46 @@
 // @MX:NOTE: [AUTO] App 루트 컴포넌트 — 스토어 초기화, 레이아웃 조합, 테마 적용, 인증 게이트
-// @MX:SPEC: SPEC-AUTH-001
+// @MX:NOTE: [AUTO] SPEC-UX-005: viewModeStore로 Pivot ↔ Widget 분기 (isPivotEnabled URL 파라미터 제거)
+// @MX:SPEC: SPEC-AUTH-001, SPEC-LAYOUT-001, SPEC-UX-001, SPEC-UX-003, SPEC-UX-005
 import { useEffect, useState } from 'react'
 import { useBookmarkStore } from './stores/bookmarkStore'
 import { useTodoStore } from './stores/todoStore'
 import { useThemeStore } from './stores/themeStore'
 import { useAuthStore } from './stores/authStore'
+import { useLayoutStore } from './stores/layoutStore'
+import type { WidgetLayout } from './stores/layoutStore'
+import { useViewModeStore } from './stores/viewModeStore'
 import { setUserStorage } from './lib/storage'
 import { migrateLocalToFirestore } from './lib/migration'
 import { darkTheme, lightTheme } from './styles/themes'
-import Clock from './components/Clock/Clock'
-import SearchBar from './components/SearchBar/SearchBar'
-import BookmarkCard from './components/BookmarkCard/BookmarkCard'
 import EditModal from './components/EditModal/EditModal'
 import ImportModal from './components/ImportModal/ImportModal'
-import TodoWidget from './components/TodoWidget/TodoWidget'
-import NotesWidget from './components/NotesWidget/NotesWidget'
 import LoginScreen from './components/LoginScreen/LoginScreen'
+import CommandPalette from './components/CommandPalette/CommandPalette'
+import QuickCapture from './components/QuickCapture/QuickCapture'
+import DedupModal from './components/DedupModal/DedupModal'
+import { useCommandPalette } from './hooks/useCommandPalette'
+import { useViewStore } from './stores/viewStore'
+import PivotLayout from './components/PivotLayout/PivotLayout'
+import WidgetLayoutComponent from './components/WidgetLayout/WidgetLayout'
 import type { Category } from './types'
-
-const uid = () => Math.random().toString(36).slice(2, 9)
 
 export default function App(): JSX.Element {
   const { user, loading: authLoading, initAuth, signOut } = useAuthStore()
-  const { bookmarks, loaded: bmLoaded, loadBookmarks, addBookmark, updateBookmark, removeBookmark } = useBookmarkStore()
+  const { setContext: setPivotContext } = useViewStore()
+  const { bookmarks, loadBookmarks, addBookmark, updateBookmark, removeBookmark } = useBookmarkStore()
   const { loaded: todoLoaded, loadTodos } = useTodoStore()
   const { mode, loaded: themeLoaded, loadTheme, toggleMode } = useThemeStore()
+  const { layout: _layout, loaded: layoutLoaded, loadLayout, updateLayout, resetLayout } = useLayoutStore()
+  // @MX:NOTE: [AUTO] SPEC-UX-005: viewModeStore로 Pivot ↔ Widget 분기 관리
+  const { mode: viewMode, loaded: viewModeLoaded, loadMode, toggleMode: toggleViewMode } = useViewModeStore()
 
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [showImportModal, setShowImportModal] = useState(false)
+  const [showQuickCapture, setShowQuickCapture] = useState(false)
+  const [showDedupModal, setShowDedupModal] = useState(false)
+
+  // REQ-001: Cmd+K / Ctrl+K 단축키로 Command Palette 열기
+  const { isOpen: isPaletteOpen, closePalette } = useCommandPalette()
 
   // 인증 상태 구독 초기화
   useEffect(() => {
@@ -41,21 +54,21 @@ export default function App(): JSX.Element {
 
     const setupAndLoad = async (): Promise<void> => {
       if (user !== null) {
-        // 로그인: Firestore 저장소로 전환
         setUserStorage(user.uid)
-        // 최초 로그인 시 로컬 데이터 마이그레이션
         await migrateLocalToFirestore(user.uid)
       } else {
-        // 로그아웃: 기본 저장소로 복귀
         setUserStorage(null)
       }
       void loadBookmarks()
       void loadTodos()
       void loadTheme()
+      void loadLayout()
+      // SPEC-UX-005: viewMode 로드
+      void loadMode()
     }
 
     void setupAndLoad()
-  }, [user, authLoading, loadBookmarks, loadTodos, loadTheme])
+  }, [user, authLoading, loadBookmarks, loadTodos, loadTheme, loadLayout, loadMode])
 
   // 인증 로딩 중
   if (authLoading) {
@@ -80,7 +93,8 @@ export default function App(): JSX.Element {
     return <LoginScreen />
   }
 
-  const loaded = bmLoaded && todoLoaded && themeLoaded
+  // @MX:NOTE: [AUTO] AC-011: viewModeLoaded 포함하여 로딩 중 깜빡임 방지
+  const loaded = todoLoaded && themeLoaded && layoutLoaded && viewModeLoaded
   const theme = mode === 'dark' ? darkTheme : lightTheme
 
   if (!loaded) {
@@ -100,8 +114,7 @@ export default function App(): JSX.Element {
     )
   }
 
-  const handleSaveCategory = (updated: Category) => {
-    // 새 카테고리인 경우 (bookmarks에 없는 id)
+  const handleSaveCategory = (updated: Category): void => {
     if (bookmarks.find((b) => b.id === updated.id)) {
       updateBookmark(updated)
     } else {
@@ -110,12 +123,14 @@ export default function App(): JSX.Element {
     setEditingCategory(null)
   }
 
-  const handleDeleteCategory = (id: string) => {
+  const handleDeleteCategory = (id: string): void => {
     removeBookmark(id)
     setEditingCategory(null)
   }
 
-  const handleAddCategory = () => {
+  const uid = (): string => Math.random().toString(36).slice(2, 9)
+
+  const handleAddCategory = (): void => {
     const newCat: Category = {
       id: uid(),
       name: '새 카테고리',
@@ -125,181 +140,29 @@ export default function App(): JSX.Element {
     setEditingCategory(newCat)
   }
 
+  const handleLayoutChange = (newLayout: WidgetLayout[]): void => {
+    updateLayout(newLayout)
+  }
+
   return (
-    <div
-      style={{
-        ...(theme as React.CSSProperties),
-        background: 'var(--bg)',
-        minHeight: '100vh',
-        transition: 'background .3s',
-      }}
-    >
-      {/* TopBar */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '16px 28px',
-          maxWidth: 1200,
-          margin: '0 auto',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 10,
-              background: 'var(--accent)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 16,
-            }}
-          >
-            🚀
-          </div>
-          <span
-            style={{
-              fontWeight: 700,
-              fontSize: 16,
-              color: 'var(--text-primary)',
-              letterSpacing: -0.5,
-            }}
-          >
-            My Hub
-          </span>
-        </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          {/* 사용자 정보 및 로그아웃 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {user.photoURL !== null && (
-              <img
-                src={user.photoURL}
-                alt="프로필"
-                style={{ width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--border)' }}
-              />
-            )}
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              {user.displayName ?? user.email ?? '사용자'}
-            </span>
-          </div>
-          <button
-            data-testid="logout-btn"
-            onClick={() => { void signOut() }}
-            style={{
-              padding: '7px 14px',
-              borderRadius: 10,
-              border: '1px solid var(--border)',
-              background: 'var(--card-bg)',
-              color: 'var(--text-muted)',
-              fontSize: 12,
-              cursor: 'pointer',
-            }}
-          >
-            로그아웃
-          </button>
-          <button
-            onClick={handleAddCategory}
-            style={{
-              padding: '7px 14px',
-              borderRadius: 10,
-              border: '1px solid var(--border)',
-              background: 'var(--card-bg)',
-              color: 'var(--text-muted)',
-              fontSize: 12,
-              cursor: 'pointer',
-            }}
-          >
-            + 카테고리
-          </button>
-          <button
-            onClick={() => setShowImportModal(true)}
-            style={{
-              padding: '7px 14px',
-              borderRadius: 10,
-              border: '1px solid var(--border)',
-              background: 'var(--card-bg)',
-              color: 'var(--text-muted)',
-              fontSize: 12,
-              cursor: 'pointer',
-            }}
-          >
-            + 가져오기
-          </button>
-          <button
-            data-testid="theme-toggle"
-            onClick={toggleMode}
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 10,
-              border: '1px solid var(--border)',
-              background: 'var(--card-bg)',
-              fontSize: 18,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {mode === 'dark' ? '☀️' : '🌙'}
-          </button>
-        </div>
-      </div>
+    <div style={{ ...(theme as React.CSSProperties), height: '100%' }}>
+      {/* @MX:NOTE: [AUTO] SPEC-UX-005: viewMode 분기 — pivot: PivotLayout, widgets: WidgetLayout */}
+      {viewMode === 'pivot' ? (
+        <PivotLayout />
+      ) : (
+        <WidgetLayoutComponent
+          handleAddCategory={handleAddCategory}
+          handleLayoutChange={handleLayoutChange}
+          onOpenImport={() => setShowImportModal(true)}
+          onOpenQuickCapture={() => setShowQuickCapture(true)}
+          onOpenDedup={() => setShowDedupModal(true)}
+          onSetEditingCategory={setEditingCategory}
+          onTogglePivotMode={toggleViewMode}
+        />
+      )}
 
-      <div
-        style={{
-          maxWidth: 1200,
-          margin: '0 auto',
-          padding: '0 28px 40px',
-        }}
-      >
-        {/* Hero: Clock (greeting included) + SearchBar */}
-        <Clock />
-        <div style={{ marginTop: 20, marginBottom: 36 }}>
-          <SearchBar />
-        </div>
-
-        {/* Main Grid: Bookmarks | Sidebar */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 360px',
-            gap: 24,
-            alignItems: 'start',
-          }}
-        >
-          {/* Bookmarks Grid */}
-          <div>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                gap: 16,
-              }}
-            >
-              {bookmarks.map((cat) => (
-                <BookmarkCard
-                  key={cat.id}
-                  category={cat}
-                  onEdit={setEditingCategory}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Sidebar: Todo + Notes */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <TodoWidget />
-            <NotesWidget />
-          </div>
-        </div>
-      </div>
-
-      {/* EditModal */}
-      {editingCategory && (
+      {/* 공통 UI — 두 모드 모두 사용 */}
+      {editingCategory !== null && (
         <EditModal
           category={editingCategory}
           onSave={handleSaveCategory}
@@ -307,11 +170,40 @@ export default function App(): JSX.Element {
           onClose={() => setEditingCategory(null)}
         />
       )}
-
-      {/* ImportModal */}
       {showImportModal && (
         <ImportModal onClose={() => setShowImportModal(false)} />
       )}
+      <QuickCapture
+        isOpen={showQuickCapture}
+        onClose={() => setShowQuickCapture(false)}
+      />
+      <DedupModal
+        isOpen={showDedupModal}
+        onClose={() => setShowDedupModal(false)}
+      />
+      {/* Command Palette — REQ-001: Cmd+K / Ctrl+K, SPEC-UX-002 */}
+      <CommandPalette
+        isOpen={isPaletteOpen}
+        onClose={closePalette}
+        onToggleTheme={toggleMode}
+        onOpenImport={() => setShowImportModal(true)}
+        onResetLayout={resetLayout}
+        onSignOut={() => { void signOut() }}
+        onOpenQuickCapture={() => setShowQuickCapture(true)}
+        onOpenDedup={() => setShowDedupModal(true)}
+        onAddCategory={handleAddCategory}
+        onToggleViewMode={toggleViewMode}
+        onSelectCategory={(categoryId) => {
+          // SPEC-UX-003: viewStore 카테고리 컨텍스트로 이동
+          setPivotContext({ kind: 'category', categoryId })
+          const cat = bookmarks.find((b) => b.id === categoryId)
+          if (cat !== undefined) setEditingCategory(cat)
+        }}
+        onSelectTag={(tag) => {
+          // SPEC-UX-003: viewStore 태그 컨텍스트로 이동
+          setPivotContext({ kind: 'tag', tag })
+        }}
+      />
     </div>
   )
 }

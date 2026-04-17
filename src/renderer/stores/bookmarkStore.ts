@@ -1,9 +1,24 @@
 // @MX:ANCHOR: [AUTO] bookmarkStore — 북마크 CRUD 상태 관리 중심 진입점
 // @MX:REASON: [AUTO] Clock, TodoWidget, NotesWidget, BookmarkCard, EditModal, App 등 다수 컴포넌트가 의존
-// @MX:SPEC: SPEC-UI-001
+// @MX:SPEC: SPEC-UI-001, SPEC-BOOKMARK-002
 import { create } from 'zustand'
-import type { Bookmark } from '../types'
+import type { Bookmark, Link } from '../types'
 import { storage } from '../lib/storage'
+import { generateNetscapeHTML, downloadBookmarks, getExportFilename } from '../lib/bookmarkExporter'
+import { findDuplicates } from '../lib/bookmarkDedup'
+import { extractTags } from '../lib/extractTags'
+
+/**
+ * 링크에 자동 태그를 병합한다.
+ * 자동 태그와 수동 태그를 합치고 중복을 제거한다 (EDGE-004).
+ */
+function mergeAutoTags(link: Link): Link {
+  const autoTags = extractTags(link.url)
+  // @MX:NOTE: [AUTO] 기존 link.tags 누락(undefined) 방어
+  const existing = link.tags ?? []
+  const merged = [...new Set([...existing, ...autoTags])]
+  return { ...link, tags: merged }
+}
 
 export const DEFAULT_BOOKMARKS: Bookmark[] = [
   {
@@ -11,10 +26,10 @@ export const DEFAULT_BOOKMARKS: Bookmark[] = [
     name: 'Work',
     icon: '💼',
     links: [
-      { id: 'l1', name: 'Gmail', url: 'https://mail.google.com' },
-      { id: 'l2', name: 'Google Drive', url: 'https://drive.google.com' },
-      { id: 'l3', name: 'Notion', url: 'https://notion.so' },
-      { id: 'l4', name: 'Slack', url: 'https://slack.com' },
+      { id: 'l1', name: 'Gmail', url: 'https://mail.google.com', tags: ['email'] },
+      { id: 'l2', name: 'Google Drive', url: 'https://drive.google.com', tags: ['docs'] },
+      { id: 'l3', name: 'Notion', url: 'https://notion.so', tags: ['notes'] },
+      { id: 'l4', name: 'Slack', url: 'https://slack.com', tags: ['chat'] },
     ],
   },
   {
@@ -22,10 +37,10 @@ export const DEFAULT_BOOKMARKS: Bookmark[] = [
     name: 'Dev',
     icon: '⚡',
     links: [
-      { id: 'l5', name: 'GitHub', url: 'https://github.com' },
-      { id: 'l6', name: 'Stack Overflow', url: 'https://stackoverflow.com' },
-      { id: 'l7', name: 'CodePen', url: 'https://codepen.io' },
-      { id: 'l8', name: 'MDN Docs', url: 'https://developer.mozilla.org' },
+      { id: 'l5', name: 'GitHub', url: 'https://github.com', tags: ['dev', 'code'] },
+      { id: 'l6', name: 'Stack Overflow', url: 'https://stackoverflow.com', tags: ['dev', 'learn'] },
+      { id: 'l7', name: 'CodePen', url: 'https://codepen.io', tags: ['dev', 'code'] },
+      { id: 'l8', name: 'MDN Docs', url: 'https://developer.mozilla.org', tags: ['dev', 'docs'] },
     ],
   },
   {
@@ -33,10 +48,10 @@ export const DEFAULT_BOOKMARKS: Bookmark[] = [
     name: 'Media',
     icon: '🎧',
     links: [
-      { id: 'l9', name: 'YouTube', url: 'https://youtube.com' },
-      { id: 'l10', name: 'Spotify', url: 'https://open.spotify.com' },
-      { id: 'l11', name: 'Netflix', url: 'https://netflix.com' },
-      { id: 'l12', name: 'Reddit', url: 'https://reddit.com' },
+      { id: 'l9', name: 'YouTube', url: 'https://youtube.com', tags: ['video'] },
+      { id: 'l10', name: 'Spotify', url: 'https://open.spotify.com', tags: ['music'] },
+      { id: 'l11', name: 'Netflix', url: 'https://netflix.com', tags: ['video'] },
+      { id: 'l12', name: 'Reddit', url: 'https://reddit.com', tags: ['social'] },
     ],
   },
   {
@@ -44,10 +59,10 @@ export const DEFAULT_BOOKMARKS: Bookmark[] = [
     name: 'Tools',
     icon: '🛠️',
     links: [
-      { id: 'l13', name: 'ChatGPT', url: 'https://chat.openai.com' },
-      { id: 'l14', name: 'Claude', url: 'https://claude.ai' },
-      { id: 'l15', name: 'Figma', url: 'https://figma.com' },
-      { id: 'l16', name: 'Canva', url: 'https://canva.com' },
+      { id: 'l13', name: 'ChatGPT', url: 'https://chat.openai.com', tags: ['ai'] },
+      { id: 'l14', name: 'Claude', url: 'https://claude.ai', tags: ['ai'] },
+      { id: 'l15', name: 'Figma', url: 'https://figma.com', tags: ['design'] },
+      { id: 'l16', name: 'Canva', url: 'https://canva.com', tags: ['design'] },
     ],
   },
 ]
@@ -60,6 +75,17 @@ interface BookmarkState {
   updateBookmark: (bookmark: Bookmark) => void
   removeBookmark: (id: string) => void
   importBookmarks: (categories: Bookmark[], mode: 'merge' | 'replace') => void
+  /** 특정 카테고리에 링크 추가 (빠른 추가 기능) */
+  addLink: (categoryId: string, link: Link) => void
+  /** 모든 북마크를 Netscape HTML 파일로 내보내기 */
+  exportBookmarks: () => void
+  /** 중복 그룹에서 keepLinkIds에 없는 링크 제거 */
+  removeDuplicates: (keepLinkIds: string[]) => void
+  /**
+   * SPEC-UX-003: 특정 링크의 favorite 플래그를 토글한다.
+   * 없으면 true로, true이면 false로 전환.
+   */
+  toggleFavorite: (linkId: string) => void
 }
 
 export const useBookmarkStore = create<BookmarkState>((set, get) => ({
@@ -97,6 +123,69 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
   removeBookmark: (id) => {
     set((state) => ({
       bookmarks: state.bookmarks.filter((b) => b.id !== id),
+    }))
+    const { loaded, bookmarks } = get()
+    if (loaded) {
+      void storage.set('hub-bookmarks', JSON.stringify(bookmarks))
+    }
+  },
+
+  addLink: (categoryId, link) => {
+    // 자동 태그를 병합한 링크를 저장
+    const linkWithAutoTags = mergeAutoTags(link)
+    set((state) => ({
+      bookmarks: state.bookmarks.map((b) =>
+        b.id === categoryId ? { ...b, links: [...b.links, linkWithAutoTags] } : b,
+      ),
+    }))
+    const { loaded, bookmarks } = get()
+    if (loaded) {
+      void storage.set('hub-bookmarks', JSON.stringify(bookmarks))
+    }
+  },
+
+  exportBookmarks: () => {
+    const { bookmarks } = get()
+    const html = generateNetscapeHTML(bookmarks)
+    const filename = getExportFilename()
+    downloadBookmarks(html, filename)
+  },
+
+  removeDuplicates: (keepLinkIds) => {
+    const { bookmarks } = get()
+    // 중복 그룹에서 제거 대상 linkId 집합 계산
+    const duplicateGroups = findDuplicates(bookmarks)
+    const toRemove = new Set<string>()
+
+    for (const group of duplicateGroups) {
+      for (const item of group.items) {
+        if (!keepLinkIds.includes(item.linkId)) {
+          toRemove.add(item.linkId)
+        }
+      }
+    }
+
+    set((state) => ({
+      bookmarks: state.bookmarks.map((b) => ({
+        ...b,
+        links: b.links.filter((l) => !toRemove.has(l.id)),
+      })),
+    }))
+
+    const { loaded, bookmarks: updated } = get()
+    if (loaded) {
+      void storage.set('hub-bookmarks', JSON.stringify(updated))
+    }
+  },
+
+  toggleFavorite: (linkId) => {
+    set((state) => ({
+      bookmarks: state.bookmarks.map((b) => ({
+        ...b,
+        links: b.links.map((l) =>
+          l.id === linkId ? { ...l, favorite: !(l.favorite ?? false) } : l,
+        ),
+      })),
     }))
     const { loaded, bookmarks } = get()
     if (loaded) {
