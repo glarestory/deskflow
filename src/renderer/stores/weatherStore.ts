@@ -57,14 +57,29 @@ interface WeatherState {
 // 자동 갱신 인터벌 ID (스토어 외부에 저장)
 let autoRefreshInterval: ReturnType<typeof setInterval> | null = null
 
+// @MX:NOTE: [AUTO] 버그 수정 — 모듈 로드 시 localStorage 캐시에서 초기 state 복원
+// 기존엔 fetchWeather 실패 시에만 캐시를 복원해 앱 재시작 시 사용자 도시/날씨가 사라짐
+function loadCachedWeather(): Partial<WeatherCache> | null {
+  try {
+    const raw = localStorage.getItem(WEATHER_CACHE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw) as WeatherCache
+  } catch {
+    // EDGE: 손상된 캐시는 무시하고 빈 초기 state로 시작
+    return null
+  }
+}
+
+const cachedWeather = loadCachedWeather()
+
 export const useWeatherStore = create<WeatherState>((set, get) => ({
-  city: null,
-  temp: null,
-  feelsLike: null,
-  humidity: null,
-  description: '',
-  icon: '',
-  lastUpdated: null,
+  city: cachedWeather?.city ?? null,
+  temp: cachedWeather?.temp ?? null,
+  feelsLike: cachedWeather?.feelsLike ?? null,
+  humidity: cachedWeather?.humidity ?? null,
+  description: cachedWeather?.description ?? '',
+  icon: cachedWeather?.icon ?? '',
+  lastUpdated: cachedWeather?.lastUpdated ?? null,
   loading: false,
   error: null,
 

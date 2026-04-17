@@ -31,6 +31,8 @@ interface PomodoroState {
   linkTodo: (todoId: string | null) => void
   updateSettings: (settings: Partial<PomodoroSettings>) => void
   sendNotification: (title: string, body: string) => void
+  // @MX:NOTE: [AUTO] 버그 수정 — 앱 시작 시 storage에서 저장된 설정을 state로 복원
+  loadSettings: () => Promise<void>
 }
 
 // 스토리지 키
@@ -154,6 +156,24 @@ export const usePomodoroStore = create<PomodoroState>((set, get) => ({
     set({ settings: updated })
     // 설정 영속화
     void storage.set(SETTINGS_KEY, JSON.stringify(updated))
+  },
+
+  // @MX:NOTE: [AUTO] 앱 시작 시 저장된 설정 복원
+  // mode가 idle일 때만 remaining도 새 focusMinutes 기준으로 초기화
+  loadSettings: async () => {
+    try {
+      const result = await storage.get(SETTINGS_KEY)
+      if (result.value !== null) {
+        const saved = JSON.parse(result.value) as PomodoroSettings
+        const { mode, remaining } = get()
+        set({
+          settings: saved,
+          remaining: mode === 'idle' ? saved.focusMinutes * 60 : remaining,
+        })
+      }
+    } catch {
+      // 파싱 실패 시 기본값 유지 (EDGE: 손상된 저장 데이터 방어)
+    }
   },
 
   sendNotification,

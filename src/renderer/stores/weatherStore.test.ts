@@ -222,4 +222,82 @@ describe('weatherStore', () => {
     await fetchCall
     expect(useWeatherStore.getState().loading).toBe(false)
   })
+
+})
+
+// --- 재현 테스트 (버그 #3): 앱 재시작 시 캐시 자동 복원 ---
+// 증상: 날씨 도시/데이터를 봤는데 앱 재시작 시 빈 상태로 돌아감
+// 원인: localStorage 캐시는 저장되지만 store 초기화 시 복원 로직 없음
+// 독립 describe block — 자체 fresh mockLocalStorage로 완전 격리
+describe('weatherStore — 초기 캐시 복원 (버그 수정 회귀 테스트)', () => {
+  let freshLocalStorage: ReturnType<typeof createFreshLocalStorage>
+
+  function createFreshLocalStorage() {
+    let store: Record<string, string> = {}
+    return {
+      getItem: vi.fn((key: string) => store[key] ?? null),
+      setItem: vi.fn((key: string, value: string) => {
+        store[key] = value
+      }),
+      removeItem: vi.fn((key: string) => {
+        delete store[key]
+      }),
+      clear: vi.fn(() => {
+        store = {}
+      }),
+    }
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.resetModules()
+    freshLocalStorage = createFreshLocalStorage()
+    vi.stubGlobal('localStorage', freshLocalStorage)
+    vi.stubGlobal('fetch', vi.fn())
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('store 모듈 로드 시 localStorage 캐시가 있으면 초기 state로 자동 복원한다', async () => {
+    const cached = {
+      city: '서울',
+      temp: 20,
+      feelsLike: 19,
+      humidity: 60,
+      description: '맑음',
+      icon: '01d',
+      lastUpdated: '2026-04-17T10:00:00.000Z',
+    }
+    freshLocalStorage.setItem('weather-cache', JSON.stringify(cached))
+
+    const { useWeatherStore } = await import('./weatherStore')
+    const state = useWeatherStore.getState()
+
+    expect(state.city).toBe('서울')
+    expect(state.temp).toBe(20)
+    expect(state.feelsLike).toBe(19)
+    expect(state.humidity).toBe(60)
+    expect(state.description).toBe('맑음')
+    expect(state.icon).toBe('01d')
+    expect(state.lastUpdated).toBe('2026-04-17T10:00:00.000Z')
+  })
+
+  it('캐시가 없을 때는 null 초기 state를 유지한다', async () => {
+    const { useWeatherStore } = await import('./weatherStore')
+    const state = useWeatherStore.getState()
+
+    expect(state.city).toBeNull()
+    expect(state.temp).toBeNull()
+  })
+
+  it('손상된 캐시는 null 초기 state로 안전하게 폴백한다', async () => {
+    freshLocalStorage.setItem('weather-cache', '{corrupted json')
+
+    const { useWeatherStore } = await import('./weatherStore')
+    const state = useWeatherStore.getState()
+
+    expect(state.city).toBeNull()
+  })
 })

@@ -153,6 +153,27 @@ vi.mock('../stores/feedStore', () => ({
   }),
 }))
 
+// pomodoroStore 모킹 — 앱 mount 시 loadSettings 호출 여부 검증용
+const mockLoadSettings = vi.fn(() => Promise.resolve())
+vi.mock('../stores/pomodoroStore', () => ({
+  usePomodoroStore: () => ({
+    mode: 'idle',
+    remaining: 1500,
+    completed: 0,
+    linkedTodoId: null,
+    settings: { focusMinutes: 25, breakMinutes: 5, longBreakMinutes: 15 },
+    intervalId: null,
+    loadSettings: mockLoadSettings,
+    start: vi.fn(),
+    pause: vi.fn(),
+    reset: vi.fn(),
+    tick: vi.fn(),
+    linkTodo: vi.fn(),
+    updateSettings: vi.fn(),
+    sendNotification: vi.fn(),
+  }),
+}))
+
 // layoutStore 모킹
 const mockUpdateLayout = vi.fn()
 const mockResetLayout = vi.fn()
@@ -362,6 +383,19 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(mockLoadFeeds).toHaveBeenCalled()
+    })
+  })
+
+  // 재현 테스트 (버그 #2): 포모도로 설정이 앱 재시작 시 기본값으로 돌아감
+  // 원인: App.tsx에서 usePomodoroStore.loadSettings가 호출되지 않음
+  it('인증된 사용자 mount 시 pomodoroStore.loadSettings가 호출되어야 한다', async () => {
+    mockGet.mockResolvedValue({ value: null })
+
+    const { default: App } = await import('../App')
+    render(<App />)
+
+    await waitFor(() => {
+      expect(mockLoadSettings).toHaveBeenCalled()
     })
   })
 })

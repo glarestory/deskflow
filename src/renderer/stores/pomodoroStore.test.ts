@@ -284,4 +284,35 @@ describe('pomodoroStore', () => {
     expect(usePomodoroStore.getState().remaining).toBe(before - 1)
     usePomodoroStore.getState().reset()
   })
+
+  // --- 재현 테스트 (버그 #2): loadSettings 복원 ---
+  // 증상: 포모도로 focus/break 설정을 바꿔도 앱 재시작 시 기본값으로 돌아감
+  // 원인: storage.set으로 저장은 하지만 loadSettings 함수가 존재하지 않음
+  it('loadSettings()가 storage의 저장된 설정을 state로 복원한다', async () => {
+    const savedSettings = { focusMinutes: 30, breakMinutes: 10, longBreakMinutes: 20 }
+    mockGet.mockResolvedValue({ value: JSON.stringify(savedSettings) })
+
+    const { usePomodoroStore } = await import('./pomodoroStore')
+    // 초기엔 기본값
+    expect(usePomodoroStore.getState().settings.focusMinutes).toBe(25)
+
+    await usePomodoroStore.getState().loadSettings()
+
+    const { settings } = usePomodoroStore.getState()
+    expect(settings.focusMinutes).toBe(30)
+    expect(settings.breakMinutes).toBe(10)
+    expect(settings.longBreakMinutes).toBe(20)
+  })
+
+  it('loadSettings()는 storage에 저장된 값이 없으면 기본값을 유지한다', async () => {
+    mockGet.mockResolvedValue({ value: null })
+
+    const { usePomodoroStore } = await import('./pomodoroStore')
+    await usePomodoroStore.getState().loadSettings()
+
+    const { settings } = usePomodoroStore.getState()
+    expect(settings.focusMinutes).toBe(25)
+    expect(settings.breakMinutes).toBe(5)
+    expect(settings.longBreakMinutes).toBe(15)
+  })
 })

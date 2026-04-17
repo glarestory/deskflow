@@ -10,6 +10,7 @@ import { useLayoutStore } from './stores/layoutStore'
 import type { WidgetLayout } from './stores/layoutStore'
 import { useViewModeStore } from './stores/viewModeStore'
 import { useFeedStore } from './stores/feedStore'
+import { usePomodoroStore } from './stores/pomodoroStore'
 import { setUserStorage } from './lib/storage'
 import { migrateLocalToFirestore } from './lib/migration'
 import { darkTheme, lightTheme } from './styles/themes'
@@ -37,6 +38,9 @@ export default function App(): JSX.Element {
   // @MX:NOTE: [AUTO] SPEC-WIDGET-003: feedStore의 저장된 피드 복원
   // 버그 수정: 기존엔 loadFeeds가 호출되지 않아 앱 재시작 시 피드 데이터가 사라짐
   const { loadFeeds } = useFeedStore()
+  // @MX:NOTE: [AUTO] SPEC-WIDGET-004: pomodoroStore 설정 복원
+  // 버그 수정: loadSettings 부재로 focus/break 설정이 앱 재시작 시 기본값으로 돌아감
+  const { loadSettings: loadPomodoroSettings } = usePomodoroStore()
 
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [showImportModal, setShowImportModal] = useState(false)
@@ -71,10 +75,12 @@ export default function App(): JSX.Element {
       void loadMode()
       // SPEC-WIDGET-003: 저장된 RSS 피드 복원 (버그 수정)
       void loadFeeds()
+      // SPEC-WIDGET-004: 저장된 포모도로 설정 복원 (버그 수정)
+      void loadPomodoroSettings()
     }
 
     void setupAndLoad()
-  }, [user, authLoading, loadBookmarks, loadTodos, loadTheme, loadLayout, loadMode, loadFeeds])
+  }, [user, authLoading, loadBookmarks, loadTodos, loadTheme, loadLayout, loadMode, loadFeeds, loadPomodoroSettings])
 
   // 인증 로딩 중
   if (authLoading) {
