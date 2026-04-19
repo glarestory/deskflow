@@ -97,19 +97,26 @@ src/
     │   ├── BookmarkCard/
     │   ├── EditModal/
     │   ├── TodoWidget/
-    │   └── NotesWidget/
+    │   ├── NotesWidget/
+    │   ├── CapsuleSwitcher/       # Context Capsule 전환 (드롭다운/바텀시트)
+    │   ├── CapsuleEditModal/      # Context Capsule 편집
+    │   └── CapsuleListPanel/      # Context Capsule 목록
     ├── lib/       # 유틸리티 라이브러리
-    │   └── storage.ts # Electron IPC / localStorage 어댑터
+    │   ├── storage.ts             # Electron IPC / localStorage 어댑터
+    │   ├── capsuleMigration.ts    # 로컬 → Firestore 마이그레이션
+    │   └── colorAdjust.ts         # OKLCH lightness 자동 보정
     ├── stores/    # Zustand 상태 관리
     │   ├── bookmarkStore.ts
     │   ├── todoStore.ts
-    │   └── themeStore.ts
+    │   ├── themeStore.ts
+    │   └── capsuleStore.ts        # Context Capsule 상태 관리
     ├── styles/    # 스타일 및 테마
     │   ├── themes.ts
     │   └── globals.css
     ├── types/     # TypeScript 타입
     │   ├── index.ts
-    │   └── electron.d.ts
+    │   ├── electron.d.ts
+    │   └── capsule.ts             # Capsule 엔티티 타입
     └── __tests__/
         └── App.test.tsx
 ```
@@ -144,6 +151,15 @@ electron-vite의 3-프로세스 구조를 따릅니다.
   - [x] 빈 폴더 자동 제외, 중복 URL 처리
   - [x] ImportModal: 3단계 UI (파일 선택 → 미리보기 → 확인)
   - 104개 테스트 통과, TypeScript 0 오류
+- [x] SPEC-CAPSULE-001: Context Capsule — 개발자 작업 맥락 스냅샷 (v0.7.0)
+  - [x] Capsule 도메인 모델 + capsuleStore (CRUD + 영속화 + 메트릭)
+  - [x] 활성 캡슐 복원 체인 (viewMode + pivotContext + pomodoro)
+  - [x] CapsuleSwitcher (드롭다운/바텀시트 반응형 @640px)
+  - [x] CapsuleEditModal + CapsuleListPanel (검색/정렬/보관)
+  - [x] Command Palette 캡슐 액션 + Cmd+Shift+N 단축키
+  - [x] 북마크/Todo 삭제 시 고아 참조 자동 정리
+  - [x] OKLCH lightness 자동 보정 (테마별 대비 보장)
+  - 729개 테스트 통과, TypeScript 0 오류, ESLint 0 오류
 
 ## 라이선스
 

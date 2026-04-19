@@ -5,6 +5,47 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/)를 따르고,
 버전 관리는 [Semantic Versioning](https://semver.org/)을 따릅니다.
 
+## [0.7.0] - 2026-04-19
+
+### Added
+
+- SPEC-CAPSULE-001: Context Capsule — 개발자 작업 맥락 스냅샷
+  - `src/renderer/types/capsule.ts`: Capsule 엔티티 + PomodoroPreset + CapsuleMetrics 타입
+  - `src/renderer/stores/capsuleStore.ts`: Zustand 기반 캡슐 상태 관리 (CRUD + 활성화 + 복원 + 메트릭)
+  - `src/renderer/stores/capsuleStore.test.ts`, `.integration.test.ts`: 84개 테스트 (엔티티, 영속화, 복원 체인, 고아 처리, 자동 추가)
+  - `src/renderer/components/CapsuleSwitcher/`: 캡슐 전환 UI (드롭다운 & 반응형 바텀시트 @640px)
+  - `src/renderer/components/CapsuleEditModal/`: 캡슐 편집 모달 (이름/이모지/색상/설명/태그)
+  - `src/renderer/components/CapsuleListPanel/`: 캡슐 목록 패널 (검색/정렬/보관 탭)
+  - `src/renderer/lib/capsuleMigration.ts`: 로컬 → Firestore 마이그레이션 (Firestore 동기화 REQ-004)
+  - `src/renderer/lib/colorAdjust.ts`: OKLCH lightness 자동 보정 (DEC-002, 테마별 대비 WCAG AA 보장)
+  - Command Palette 캡슐 액션: "캡슐: 새로 만들기", "캡슐: 모든 캡슐 보기", "캡슐: 활성 캡슐 편집", "캡슐: 해제", 캡슐별 "활성화" 및 "보관/복원" 동적 액션
+  - 키보드 단축키: `Ctrl/Cmd + Shift + N` (신규 캡슐 생성, 입력 포커스 중 비활성)
+  - activeCapsuleId + autoAddToActive=true 상태에서 신규 북마크/Todo 생성 시 활성 캡슐에 자동 추가 (REQ-011)
+
+### Changed
+
+- `bookmarkStore.ts`, `todoStore.ts`: removeBookmark/removeTodo 시 `capsuleStore.purgeOrphan` 호출 (REQ-017)
+- `bookmarkStore.ts`, `todoStore.ts`: addBookmark/addTodo 시 활성 캡슐 + `autoAddToActive=true`이면 자동 추가 (REQ-011)
+- `pomodoroStore.ts`: 세션 완료 시 `capsuleStore.incrementMetric('focusMinutes', minutes)` 호출
+- `App.tsx`: `loadCapsules()` 호출 + CapsuleSwitcher/CapsuleEditModal/CapsuleListPanel 마운트 + 활성화 복원 체인
+- `CommandPalette.tsx`: 캡슐 액션 5개 + 동적 주입 패턴으로 리팩토링
+- `styles/themes.ts`: `--capsule-*` CSS 변수 토큰 추가 (OKLCH 색상)
+- `lib/migration.ts`: 캡슐 데이터 포함해 Firestore 마이그레이션
+
+### Technical
+
+- 테스트 증가: 618개 → 729개 (+111, 캡슐 store/component/integration/hooks 추가)
+- 신규 파일: 13개 (types, stores, components, lib)
+- 수정 파일: 10개 (App, Command Palette, Widgets, Stores, Migration, Themes)
+- TypeScript: 0 오류 유지 (strict mode)
+- ESLint: 0 오류 유지 (flat config)
+- 코드 커버리지: 85% 이상 달성
+- 설계 결정: DEC-001~DEC-004 확정 (autoAddToActive=true, OKLCH 보정, Firestore 배열 필드, CSS 미디어 쿼리)
+- Firestore 스키마: `/users/{uid}/capsules/{capsuleId}` (배열 필드 MVP, 향후 서브컬렉션으로 확장 가능)
+- 성능: CapsuleSwitcher 오픈 < 50ms, 활성화 반영 < 200ms (NFR-002)
+
+---
+
 ## [0.6.0] - 2026-04-11
 
 ### Added
