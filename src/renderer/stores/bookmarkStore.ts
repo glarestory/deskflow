@@ -8,6 +8,7 @@ import { generateNetscapeHTML, downloadBookmarks, getExportFilename } from '../l
 import { findDuplicates } from '../lib/bookmarkDedup'
 import { extractTags } from '../lib/extractTags'
 import { useCapsuleStore } from './capsuleStore'
+import { useEmbeddingStore } from './embeddingStore'
 
 /**
  * 링크에 자동 태그를 병합한다.
@@ -120,6 +121,11 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
         // DEC-003: > 1000 초과 시 에러 — 무시하고 진행
       }
     }
+    // @MX:NOTE: [AUTO] SPEC-SEARCH-RAG-001 REQ-004,006 — 신규 카테고리의 링크 임베딩 큐 등록
+    if (bookmark.links.length > 0) {
+      const linkIds = bookmark.links.map((l) => l.id)
+      useEmbeddingStore.getState().enqueueIndex(linkIds)
+    }
   },
 
   updateBookmark: (updated) => {
@@ -130,9 +136,18 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
     if (loaded) {
       void storage.set('hub-bookmarks', JSON.stringify(bookmarks))
     }
+    // @MX:NOTE: [AUTO] SPEC-SEARCH-RAG-001 REQ-004,007 — 카테고리 업데이트 시 링크 재인덱싱
+    // runIndexBatch에서 contentHash 비교로 실제 변경된 링크만 embed 호출
+    if (updated.links.length > 0) {
+      const linkIds = updated.links.map((l) => l.id)
+      useEmbeddingStore.getState().enqueueIndex(linkIds)
+    }
   },
 
   removeBookmark: (id) => {
+    // 삭제 전 링크 ID 목록 수집 (state 업데이트 전)
+    const toDeleteLinks = get().bookmarks.find((b) => b.id === id)?.links ?? []
+
     set((state) => ({
       bookmarks: state.bookmarks.filter((b) => b.id !== id),
     }))
@@ -143,6 +158,11 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
     // REQ-017: 고아 참조 제거 — 삭제된 북마크 id를 모든 캡슐에서 제거
     // @MX:NOTE: [AUTO] capsuleStore.purgeOrphan 훅 — SPEC-CAPSULE-001 REQ-017
     useCapsuleStore.getState().purgeOrphan('bookmark', id)
+    // @MX:NOTE: [AUTO] SPEC-SEARCH-RAG-001 REQ-004,009 — 카테고리 삭제 시 링크 임베딩 제거
+    const embeddingState = useEmbeddingStore.getState()
+    for (const link of toDeleteLinks) {
+      embeddingState.removeEmbedding(link.id)
+    }
   },
 
   addLink: (categoryId, link) => {
@@ -157,6 +177,8 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
     if (loaded) {
       void storage.set('hub-bookmarks', JSON.stringify(bookmarks))
     }
+    // @MX:NOTE: [AUTO] SPEC-SEARCH-RAG-001 REQ-004,006 — 신규 링크 임베딩 큐 등록
+    useEmbeddingStore.getState().enqueueIndex([link.id])
   },
 
   exportBookmarks: () => {

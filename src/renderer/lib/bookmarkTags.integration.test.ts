@@ -9,6 +9,28 @@ vi.mock('../lib/storage', () => ({
   },
 }))
 
+// capsuleStore 모킹
+vi.mock('../stores/capsuleStore', () => ({
+  useCapsuleStore: {
+    getState: vi.fn(() => ({
+      autoAddToActive: false,
+      activeCapsuleId: null,
+      addBookmarkToCapsule: vi.fn(),
+      purgeOrphan: vi.fn(),
+    })),
+  },
+}))
+
+// embeddingStore 모킹 (Phase 3 훅 의존)
+vi.mock('../stores/embeddingStore', () => ({
+  useEmbeddingStore: {
+    getState: vi.fn(() => ({
+      enqueueIndex: vi.fn(),
+      removeEmbedding: vi.fn(),
+    })),
+  },
+}))
+
 describe('SPEC-BOOKMARK-003 통합 테스트', () => {
   beforeEach(() => {
     vi.clearAllMocks()

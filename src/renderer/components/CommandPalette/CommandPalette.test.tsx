@@ -5,6 +5,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
+// embeddingStore 모킹 (Phase 3 훅 의존 — bookmarkStore가 import함)
+vi.mock('../../stores/embeddingStore', () => ({
+  useEmbeddingStore: {
+    getState: vi.fn(() => ({
+      enqueueIndex: vi.fn(),
+      removeEmbedding: vi.fn(),
+    })),
+  },
+}))
+
 // storage 모킹
 const mockGet = vi.fn()
 const mockSet = vi.fn()

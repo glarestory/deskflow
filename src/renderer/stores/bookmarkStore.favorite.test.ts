@@ -6,6 +6,28 @@ const mockGet = vi.fn()
 const mockSet = vi.fn()
 vi.stubGlobal('storage', { get: mockGet, set: mockSet })
 
+// capsuleStore 모킹 (bookmarkStore 의존)
+vi.mock('./capsuleStore', () => ({
+  useCapsuleStore: {
+    getState: vi.fn(() => ({
+      autoAddToActive: false,
+      activeCapsuleId: null,
+      addBookmarkToCapsule: vi.fn(),
+      purgeOrphan: vi.fn(),
+    })),
+  },
+}))
+
+// embeddingStore 모킹 (Phase 3 훅 의존)
+vi.mock('./embeddingStore', () => ({
+  useEmbeddingStore: {
+    getState: vi.fn(() => ({
+      enqueueIndex: vi.fn(),
+      removeEmbedding: vi.fn(),
+    })),
+  },
+}))
+
 describe('bookmarkStore — toggleFavorite (SPEC-UX-003)', () => {
   beforeEach(async () => {
     vi.clearAllMocks()

@@ -38,6 +38,16 @@ vi.mock('./pomodoroStore', () => ({
   },
 }))
 
+// embeddingStore 모킹 (Phase 3 훅 의존)
+vi.mock('./embeddingStore', () => ({
+  useEmbeddingStore: {
+    getState: vi.fn(() => ({
+      enqueueIndex: vi.fn(),
+      removeEmbedding: vi.fn(),
+    })),
+  },
+}))
+
 describe('Phase 4: bookmarkStore → capsuleStore purgeOrphan 훅 (SPEC-CAPSULE-001 REQ-017)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
