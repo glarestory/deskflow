@@ -2,8 +2,8 @@
 
 ## 현재 상태
 
-초기화 전 단계. `productivity-hub.jsx` 샘플 파일만 존재.
-SPEC-DESKFLOW-001 구현 후 아래 구조가 생성됩니다.
+SPEC-DESKFLOW-001 기본 구현 완료. SPEC-SEARCH-RAG-001 (RAG 검색 기능) 구현 완료.
+아래 구조는 현재 프로젝트 상태를 반영합니다.
 
 ## 목표 디렉터리 구조
 
@@ -51,9 +51,16 @@ Deskflow/
 │       │   ├── EditModal/
 │       │   │   ├── EditModal.tsx    # 북마크 편집 모달
 │       │   │   └── EditModal.test.tsx
-│       │   └── TopBar/
-│       │       ├── TopBar.tsx       # 상단 네비게이션 바
-│       │       └── TopBar.test.tsx
+│       │   ├── TopBar/
+│       │   │   ├── TopBar.tsx       # 상단 네비게이션 바
+│       │   │   └── TopBar.test.tsx
+│       │   ├── CommandPalette/      # Command Palette UI (SPEC-UX-002, SPEC-SEARCH-RAG-001)
+│       │   │   ├── CommandPalette.tsx
+│       │   │   ├── RagStatusBadge.tsx + .test.tsx
+│       │   │   └── CommandPalette.test.tsx
+│       │   └── ProgressToast/       # 진행률 Toast (SPEC-SEARCH-RAG-001)
+│       │       ├── ProgressToast.tsx
+│       │       └── ProgressToast.test.tsx
 │       │
 │       ├── hooks/                   # 커스텀 훅
 │       │   ├── useStorage.ts        # window.storage IPC 래퍼
@@ -63,14 +70,24 @@ Deskflow/
 │       ├── stores/                  # Zustand 상태 관리
 │       │   ├── bookmarkStore.ts     # 북마크 CRUD 상태
 │       │   ├── todoStore.ts         # 할 일 목록 상태
-│       │   └── themeStore.ts        # 테마 상태
+│       │   ├── themeStore.ts        # 테마 상태
+│       │   ├── embeddingStore.ts    # 북마크 임베딩 저장소 (SPEC-SEARCH-RAG-001)
+│       │   └── ragStore.ts          # RAG 검색 상태 + health check (SPEC-SEARCH-RAG-001)
+│       │
+│       ├── lib/                     # 유틸리티 함수
+│       │   ├── ollamaClient.ts + .test.ts # Ollama HTTP 클라이언트 (SPEC-SEARCH-RAG-001)
+│       │   ├── cosineSimilarity.ts + .test.ts # 벡터 유사도 계산 (SPEC-SEARCH-RAG-001)
+│       │   ├── contentHash.ts + .test.ts # SHA-256 해시 (SPEC-SEARCH-RAG-001)
+│       │   ├── firestoreEmbeddingStorage.ts + .test.ts # Firestore 서브컬렉션 I/O (SPEC-SEARCH-RAG-001)
+│       │   └── searchAll.ts          # 검색 통합 (fuzzy + RAG)
 │       │
 │       ├── styles/                  # 전역 스타일
 │       │   ├── globals.css          # CSS 변수 정의, 리셋
 │       │   └── themes.ts            # 다크/라이트 테마 토큰
 │       │
 │       └── types/                   # TypeScript 타입 정의
-│           └── index.ts             # 공유 타입 (Bookmark, Todo, Theme 등)
+│           ├── index.ts             # 공유 타입 (Bookmark, Todo, Theme 등)
+│           └── embedding.ts         # BookmarkEmbedding 타입 (SPEC-SEARCH-RAG-001)
 │
 ├── resources/                       # 앱 아이콘 및 정적 에셋
 │   └── icon.png

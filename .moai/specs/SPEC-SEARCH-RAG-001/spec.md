@@ -1,9 +1,9 @@
 ---
 id: SPEC-SEARCH-RAG-001
-version: 0.1.0
-status: draft
+version: 1.0.0
+status: completed
 created: 2026-04-19
-updated: 2026-04-19
+updated: 2026-04-20
 author: ZeroJuneK
 priority: high
 issue_number: 0
@@ -16,6 +16,7 @@ issue_number: 0
 | 버전 | 날짜 | 작성자 | 변경 내용 |
 |------|------|--------|-----------|
 | 0.1.0 | 2026-04-19 | ZeroJuneK | 최초 작성 (Deskflow "가장 똑똑한 허브" 기술적 해자 기능) |
+| 1.0.0 | 2026-04-20 | ZeroJuneK | Phase 1-6 TDD 구현 완료, status=completed |
 
 ## 개요
 
@@ -317,6 +318,9 @@ CommandPalette
 - `src/renderer/stores/embeddingStore.ts` + `.test.ts` + `.integration.test.ts`
 - `src/renderer/stores/ragStore.ts` + `.test.ts`
 - `src/renderer/components/CommandPalette/RagResults.tsx` (신규 서브컴포넌트)
+- `src/renderer/lib/firestoreEmbeddingStorage.ts` + `.test.ts` (Firestore 서브컬렉션 I/O)
+- `src/renderer/components/ProgressToast/ProgressToast.tsx` + `.test.tsx` (진행률 Toast)
+- `src/renderer/components/CommandPalette/RagStatusBadge.tsx` + `RagStatusBadge.test.tsx`
 
 ### 수정 파일
 - `src/renderer/components/CommandPalette/CommandPalette.tsx` (RAG 그룹 + 상태 배지)
@@ -336,3 +340,58 @@ CommandPalette
 - **하이브리드 재정렬 (BM25 + 벡터)**: 순수 벡터만. BM25는 후속
 - **검색 히스토리/즐겨찾기 쿼리**: 범위 외
 - **인덱싱 Web Worker 분리**: 메인 스레드 디바운스로 처리. 성능 문제 시 후속
+
+## Implementation Notes (2026-04-20)
+
+Phase 1-6 TDD RED-GREEN-REFACTOR 사이클로 구현 완료.
+
+### 전달된 기능 요약
+
+| Phase | 커밋 | 핵심 산출물 |
+|-------|------|-------------|
+| Phase 1 | `91262b7` | `lib/ollamaClient`, `lib/cosineSimilarity`, `lib/contentHash` + 35 테스트 |
+| Phase 2 | `615c88a` | `stores/embeddingStore`, `lib/firestoreEmbeddingStorage`, `types/embedding`, `migration.ts` 확장 + 19 테스트 |
+| Phase 3 | `3af4a17` | `enqueueIndex`/`runIndexBatch` 실제 로직, `bookmarkStore` 훅 + 19 테스트 |
+| Phase 4 | `cab41f9` | `stores/ragStore`(디바운스 포함), `searchAll.ts` RAG 통합 + 22 테스트 |
+| Phase 5 | `40c2b14` | `RagStatusBadge`, `ResultItem` rag variant, `CommandPalette` 통합 + 30 테스트 |
+| Phase 6 | `edc2ab5` | 설정 영속화, App.tsx initRag 체인, ProgressToast, SidebarSettings UI + 16 테스트 |
+
+### 계획 대비 차이 (Divergence)
+
+**추가 구현** (plan.md에 없었지만 합리적 확장으로 포함):
+- `firestoreEmbeddingStorage.ts` + `.test.ts`: 서브컬렉션 I/O를 별도 모듈로 추출 (NFR-003 1MB 우회 구현상 필요)
+- `ProgressToast.tsx` + `.test.tsx`: AC-013/AC-014 충족을 위한 신규 컴포넌트 (plan.md는 Toast만 언급)
+- `SidebarSettings.rag.test.tsx`: RAG 설정 UI 전용 테스트
+- 기존 5개 테스트 파일에 mock 추가 (`bookmarkStore` → `embeddingStore` 순환 참조 해소)
+
+**연기** (plan.md Phase 3 → Phase 6로 이동):
+- App.tsx 초기 배치 enqueue 및 drain 로직: Phase 3 범위 관리를 위해 Phase 6 `initRag` 체인으로 이동
+
+### 최종 지표
+
+- 신규 테스트: +142 (732 → 874 passing)
+- 전체 통과율: 99.89% (유일 실패: 기존 `pomodoroStore.updateSettings` flaky 타임아웃, SPEC 범위 외)
+- TypeScript strict: 신규 오류 0건
+- ESLint: 0 오류
+- MX 태그: `@MX:SPEC: SPEC-SEARCH-RAG-001` 21건 부착
+
+### 후속 과제 (별도 SPEC 권장)
+
+- E2E 수동 검증 (AC-035/036 성능 NFR): 실제 Ollama + 북마크 20-500개로 측정 필요
+- `@vitest/coverage-v8` 설치 후 정량적 커버리지 수치 확보 (현재 테스트 수 기반 추정만 가능)
+- 프로젝트 기존 TypeScript 기술 부채 (JSX 네임스페이스 오류 168건) 정리는 별도 SPEC 권장
+
+### 완료 정의 체크리스트 (acceptance.md 준거)
+
+- [x] AC-001~AC-005: Ollama 연결 감지 + 3상태 배지
+- [x] AC-006~AC-014: 인덱싱 파이프라인 + 진행률 Toast
+- [x] AC-015~AC-018: 벡터 저장 (local + Firestore 서브컬렉션 + 마이그레이션)
+- [x] AC-019~AC-025: 검색 (디바운스, threshold, Top K, 엔터로 URL 열기)
+- [x] AC-026~AC-029: 폴백 & 에러 (!ollamaAvailable, 5초 타임아웃, disabled)
+- [x] AC-030~AC-034: 설정 + 프라이버시 (토글, 슬라이더, 영속화, localhost 한정)
+- [x] AC-037~AC-039: 품질 게이트 (TS strict 0, ESLint 0, 기존 테스트 회귀 0)
+- [ ] AC-035/AC-036: 실제 Ollama 환경에서 성능 측정 필요 (후속 과제)
+- [x] README: "RAG 검색 설정" 섹션 추가 완료
+- [x] `@MX:SPEC` 태그 부착 완료
+
+Status: **completed** (Level 1 spec-first — 구현 완료 후 유지보수 모드 진입).

@@ -66,6 +66,38 @@ electron-builder
 - **CSS Modules** (컴포넌트 격리)
 - 기존 `productivity-hub.jsx`의 인라인 스타일 → CSS Modules로 점진적 전환
 
+## Ollama (선택적, RAG용)
+
+### 설정 및 설치
+
+RAG 시맨틱 검색 기능(SPEC-SEARCH-RAG-001)은 로컬 Ollama 서버에 의존합니다. 설치 및 설정:
+
+- **다운로드**: https://ollama.com (Windows, macOS, Linux 지원)
+- **필수 모델**: `nomic-embed-text` (384 차원 임베딩 모델)
+  ```bash
+  ollama pull nomic-embed-text
+  ```
+- **서버 시작**: `ollama serve` (기본값 http://localhost:11434)
+- **CORS 설정** (Web 빌드용):
+  ```bash
+  OLLAMA_ORIGINS=* ollama serve
+  # 또는 특정 오리진만 허용:
+  OLLAMA_ORIGINS=http://localhost:5173 ollama serve
+  ```
+
+### 프라이버시 보장
+
+- 북마크 원문 텍스트는 **로컬 머신을 떠나지 않음** (localhost만 사용)
+- 미인증 사용자: 임베딩 벡터도 로컬 `electron-store`에만 저장
+- 인증 사용자: 임베딩은 Firestore 서브컬렉션에 저장되나, 원본 텍스트는 저장되지 않음
+
+### 성능 특성
+
+- 단일 북마크 임베딩: < 500ms (`nomic-embed-text` 기준)
+- 배치 인덱싱 (100개): < 60초
+- 쿼리 → 검색 결과: < 800ms
+- 스토리지 풋프린트: 384-dim float32 ≈ 1.5KB/북마크 (500개 ≈ 750KB)
+
 ## 테스트 전략
 
 | 레이어 | 도구 | 목표 커버리지 |

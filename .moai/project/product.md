@@ -35,6 +35,10 @@ Electron 기반으로 Windows, macOS, Linux에서 동작하며, React + TypeScri
 - 다크/라이트 테마 전환
 - 모든 데이터 자동 저장 (세션 간 유지)
 
+### 고급 기능
+
+- **RAG 시맨틱 검색** (v0.8.0+, SPEC-SEARCH-RAG-001): 로컬 Ollama 기반 자연어 시맨틱 검색. Command Palette에서 4자 이상 쿼리 입력 시 북마크를 의미론적 유사도로 검색하며, Ollama 미설치 시 자동 폴백
+
 ## 기술 개요
 
 ### 코어 스택
