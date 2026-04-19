@@ -161,6 +161,58 @@ electron-vite의 3-프로세스 구조를 따릅니다.
   - [x] OKLCH lightness 자동 보정 (테마별 대비 보장)
   - 729개 테스트 통과, TypeScript 0 오류, ESLint 0 오류
 
+## RAG 검색 설정
+
+RAG(Retrieval-Augmented Generation) 검색은 북마크를 벡터 임베딩으로 변환하여 자연어 시맨틱 검색을 제공합니다. `nomic-embed-text` 모델을 사용하며, 로컬 Ollama 서버가 필요합니다. Command Palette(`Cmd+K`)에서 입력한 쿼리와 의미적으로 유사한 북마크를 찾아줍니다.
+
+### 요구사항
+
+- [Ollama](https://ollama.com) 설치 (로컬 LLM 서버)
+- `nomic-embed-text` 모델 설치
+
+### 설치
+
+```bash
+# macOS/Linux
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Windows
+# https://ollama.com/download/windows 에서 다운로드
+
+# 모델 설치
+ollama pull nomic-embed-text
+```
+
+### CORS 설정 (웹 빌드 사용 시)
+
+웹 빌드(`npm run dev:web`)를 사용할 경우 Ollama의 CORS 설정이 필요합니다.
+
+```bash
+# ~/.zshrc, ~/.bashrc, 또는 ~/.profile에 추가
+export OLLAMA_ORIGINS="*"
+
+# 또는 개발 서버 URL만 허용
+export OLLAMA_ORIGINS="http://localhost:5173"
+```
+
+설정 후 터미널을 재시작하거나 `source ~/.zshrc`를 실행하세요.
+
+### 상태 배지 및 문제 해결
+
+Command Palette 상단의 상태 배지로 Ollama 연결 상태를 확인할 수 있습니다.
+
+| 상태 | 의미 | 해결 방법 |
+|------|------|-----------|
+| 준비됨 | Ollama 연결 + 모델 정상 | 정상 |
+| 모델 누락 | Ollama 연결 O, 모델 없음 | `ollama pull nomic-embed-text` 실행 |
+| 미탐지 | Ollama 서버 미실행 | `ollama serve` 또는 앱 시작 |
+
+**재시도**: 사이드바 설정 > RAG 검색 > 재시도 버튼으로 health check를 다시 실행할 수 있습니다.
+
+**설정 조정**: 사이드바 설정 > RAG 검색에서 RAG 활성화 토글과 유사도 임계값(0.50~0.90)을 조정할 수 있습니다. 임계값이 낮을수록 더 많은 결과가 표시됩니다.
+
+기술적 상세 내용은 `.moai/specs/SPEC-SEARCH-RAG-001/spec.md`를 참조하세요.
+
 ## 라이선스
 
 Private

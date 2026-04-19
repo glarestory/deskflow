@@ -4,6 +4,31 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
+// embeddingStore / firestoreEmbeddingStorage 모킹 (SidebarSettings → ragStore → embeddingStore → firebase 체인 차단)
+vi.mock('../../lib/firestoreEmbeddingStorage', () => ({
+  firestoreEmbeddingStorage: {
+    getAll: vi.fn().mockResolvedValue([]),
+    upsert: vi.fn().mockResolvedValue(undefined),
+    remove: vi.fn().mockResolvedValue(undefined),
+    removeAll: vi.fn().mockResolvedValue(undefined),
+  },
+}))
+
+vi.mock('../../stores/embeddingStore', () => ({
+  useEmbeddingStore: {
+    getState: vi.fn(() => ({
+      embeddings: new Map(),
+      indexingQueue: [],
+      indexingInProgress: false,
+      lastBatchProgress: null,
+      enqueueIndex: vi.fn(),
+      removeEmbedding: vi.fn(),
+      loadEmbeddings: vi.fn().mockResolvedValue(undefined),
+      runIndexBatch: vi.fn().mockResolvedValue(undefined),
+    })),
+  },
+}))
+
 // react-window 모킹
 vi.mock('react-window', () => ({
   FixedSizeList: ({

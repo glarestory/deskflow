@@ -1,11 +1,13 @@
 // @MX:ANCHOR: [AUTO] ragStore — RAG 검색 상태 및 health check 진입점
 // @MX:REASON: [AUTO] App.tsx, CommandPalette, Settings, searchAll 다수 의존 (fan_in >= 3)
+// @MX:NOTE: [AUTO] loadSettings — rag-settings storage key (AC-032)
 // @MX:SPEC: SPEC-SEARCH-RAG-001
 
 import { create } from 'zustand'
 import * as ollamaClient from '../lib/ollamaClient'
 import { cosine } from '../lib/cosineSimilarity'
 import { useEmbeddingStore } from './embeddingStore'
+import { storage } from '../lib/storage'
 
 // ── 인터페이스 ────────────────────────────────────────────────────────────────
 
@@ -31,6 +33,8 @@ export interface RagState {
   similarityThreshold: number
 
   // ── 액션 ──────────────────────────────────────────────────────────────
+  /** 저장된 rag-settings 복원 (AC-032) */
+  loadSettings: () => Promise<void>
   /** Ollama 서버 및 모델 존재 확인 */
   checkHealth: () => Promise<void>
   /** RAG 기능 활성화/비활성화 */
@@ -52,10 +56,28 @@ function isNomicModel(name: string): boolean {
   return name === 'nomic-embed-text' || name.startsWith('nomic-embed-text:')
 }
 
+// ── 설정 영속화 상수 ──────────────────────────────────────────────────────────
+const RAG_SETTINGS_KEY = 'rag-settings'
+
+/** ragStore에서 영속화할 설정 형태 */
+interface RagSettings {
+  enabled: boolean
+  similarityThreshold: number
+}
+
 // ── 설정 범위 상수 ─────────────────────────────────────────────────────────────
 const THRESHOLD_MIN = 0.50
 const THRESHOLD_MAX = 0.90
 const TOP_K = 10
+
+// ── 내부 헬퍼: 설정 영속화 ────────────────────────────────────────────────────
+// loaded 가드: loadSettings 완료 전에는 쓰지 않도록 모듈 수준 플래그 사용
+let settingsLoaded = false
+
+const persistSettings = (settings: RagSettings): void => {
+  if (!settingsLoaded) return
+  void storage.set(RAG_SETTINGS_KEY, JSON.stringify(settings))
+}
 
 // ── 스토어 ────────────────────────────────────────────────────────────────────
 export const useRagStore = create<RagState>((set, get) => ({
@@ -65,6 +87,26 @@ export const useRagStore = create<RagState>((set, get) => ({
   lastHealthCheck: null,
   enabled: true,
   similarityThreshold: 0.70,
+
+  // ── loadSettings ────────────────────────────────────────────────────────
+  // AC-032: rag-settings 스토리지 키로 enabled, similarityThreshold 복원
+  loadSettings: async (): Promise<void> => {
+    try {
+      const result = await storage.get(RAG_SETTINGS_KEY)
+      if (result.value !== null) {
+        const parsed = JSON.parse(result.value) as Partial<RagSettings>
+        const clamped = Math.min(THRESHOLD_MAX, Math.max(THRESHOLD_MIN, parsed.similarityThreshold ?? 0.70))
+        set({
+          enabled: parsed.enabled ?? true,
+          similarityThreshold: clamped,
+        })
+      }
+    } catch {
+      // JSON 파싱 실패 시 기본값 유지 (graceful fallback)
+      console.warn('[ragStore] rag-settings 파싱 실패, 기본값 사용')
+    }
+    settingsLoaded = true
+  },
 
   // ── checkHealth ─────────────────────────────────────────────────────────
   // AC-001: Ollama health check + 모델 존재 확인
@@ -99,6 +141,7 @@ export const useRagStore = create<RagState>((set, get) => ({
   // ── setEnabled ──────────────────────────────────────────────────────────
   setEnabled: (v: boolean): void => {
     set({ enabled: v })
+    persistSettings({ enabled: v, similarityThreshold: get().similarityThreshold })
   },
 
   // ── setThreshold ────────────────────────────────────────────────────────
@@ -106,6 +149,7 @@ export const useRagStore = create<RagState>((set, get) => ({
   setThreshold: (v: number): void => {
     const clamped = Math.min(THRESHOLD_MAX, Math.max(THRESHOLD_MIN, v))
     set({ similarityThreshold: clamped })
+    persistSettings({ enabled: get().enabled, similarityThreshold: clamped })
   },
 
   // ── search ──────────────────────────────────────────────────────────────

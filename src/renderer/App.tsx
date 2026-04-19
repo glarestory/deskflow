@@ -1,6 +1,7 @@
 // @MX:NOTE: [AUTO] App 루트 컴포넌트 — 스토어 초기화, 레이아웃 조합, 테마 적용, 인증 게이트
 // @MX:NOTE: [AUTO] SPEC-UX-005: viewModeStore로 Pivot ↔ Widget 분기 (isPivotEnabled URL 파라미터 제거)
-// @MX:SPEC: SPEC-AUTH-001, SPEC-LAYOUT-001, SPEC-UX-001, SPEC-UX-003, SPEC-UX-005
+// @MX:NOTE: [AUTO] SPEC-SEARCH-RAG-001 AC-012 — 로그인 직후 누락 임베딩 자동 인덱싱
+// @MX:SPEC: SPEC-AUTH-001, SPEC-LAYOUT-001, SPEC-UX-001, SPEC-UX-003, SPEC-UX-005, SPEC-SEARCH-RAG-001
 import { useEffect, useState } from 'react'
 import { useBookmarkStore } from './stores/bookmarkStore'
 import { useTodoStore } from './stores/todoStore'
@@ -12,6 +13,8 @@ import { useViewModeStore } from './stores/viewModeStore'
 import { useFeedStore } from './stores/feedStore'
 import { usePomodoroStore } from './stores/pomodoroStore'
 import { useCapsuleStore } from './stores/capsuleStore'
+import { useEmbeddingStore } from './stores/embeddingStore'
+import { useRagStore } from './stores/ragStore'
 import { setUserStorage } from './lib/storage'
 import { migrateLocalToFirestore } from './lib/migration'
 import { darkTheme, lightTheme } from './styles/themes'
@@ -23,6 +26,7 @@ import QuickCapture from './components/QuickCapture/QuickCapture'
 import DedupModal from './components/DedupModal/DedupModal'
 import CapsuleEditModal from './components/CapsuleEditModal/CapsuleEditModal'
 import CapsuleListPanel from './components/CapsuleListPanel/CapsuleListPanel'
+import ProgressToast from './components/ProgressToast/ProgressToast'
 import { useCommandPalette } from './hooks/useCommandPalette'
 import { useViewStore } from './stores/viewStore'
 import PivotLayout from './components/PivotLayout/PivotLayout'
@@ -94,6 +98,47 @@ export default function App(): JSX.Element {
       void loadPomodoroSettings()
       // SPEC-CAPSULE-001: 저장된 캡슐 복원
       void loadCapsules()
+
+      // @MX:NOTE: [AUTO] SPEC-SEARCH-RAG-001 AC-012 — RAG 초기화 체인
+      // 1) 임베딩 복원 → 2) RAG 설정 복원 → 3) health check (백그라운드) → 4) 누락 링크 인덱싱
+      const initRag = async (): Promise<void> => {
+        // 1. 임베딩 데이터 복원 (스토리지 → Map)
+        await useEmbeddingStore.getState().loadEmbeddings()
+        // 2. RAG 설정 복원 (enabled, similarityThreshold)
+        await useRagStore.getState().loadSettings()
+        // 3. Ollama health check (백그라운드 — UI 블로킹 없음)
+        void useRagStore.getState().checkHealth()
+
+        // 4. AC-012: 북마크에서 누락된 linkId를 큐에 추가 후 배치 인덱싱
+        // loadBookmarks()가 비동기이므로 getState()로 현재 bookmarks 읽음
+        // (bookmarks가 아직 빈 배열이면 enqueueIndex는 no-op)
+        const { bookmarks } = useBookmarkStore.getState()
+        const { embeddings } = useEmbeddingStore.getState()
+
+        const missingLinkIds: string[] = []
+        for (const category of bookmarks) {
+          for (const link of category.links) {
+            if (!embeddings.has(link.id)) {
+              missingLinkIds.push(link.id)
+            }
+          }
+        }
+
+        if (missingLinkIds.length > 0) {
+          useEmbeddingStore.getState().enqueueIndex(missingLinkIds)
+
+          // 큐가 빌 때까지 배치 실행 (메인 스레드 양보 포함)
+          const drainQueue = async (): Promise<void> => {
+            while (useEmbeddingStore.getState().indexingQueue.length > 0) {
+              await useEmbeddingStore.getState().runIndexBatch()
+              // 메인 스레드에 양보
+              await new Promise<void>((resolve) => { setTimeout(resolve, 50) })
+            }
+          }
+          void drainQueue()
+        }
+      }
+      void initRag()
     }
 
     void setupAndLoad()
@@ -269,6 +314,8 @@ export default function App(): JSX.Element {
           onClose={() => setShowCapsuleList(false)}
         />
       )}
+      {/* SPEC-SEARCH-RAG-001 AC-013 AC-014: 임베딩 인덱싱 진행률 Toast */}
+      <ProgressToast />
       {/* Command Palette — REQ-001: Cmd+K / Ctrl+K, SPEC-UX-002, SPEC-CAPSULE-001 REQ-013 */}
       <CommandPalette
         isOpen={isPaletteOpen}

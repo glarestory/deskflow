@@ -5,6 +5,31 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/)를 따르고,
 버전 관리는 [Semantic Versioning](https://semver.org/)을 따릅니다.
 
+## [0.8.0] - 2026-04-20
+
+### Added
+
+- SPEC-SEARCH-RAG-001: Local RAG 검색 — Ollama nomic-embed-text 기반 시맨틱 북마크 검색
+  - `src/renderer/lib/ollamaClient.ts`: Ollama HTTP 클라이언트 (health check, embed, listModels)
+  - `src/renderer/lib/cosineSimilarity.ts`: 코사인 유사도 계산 (벡터 정규화 포함)
+  - `src/renderer/lib/contentHash.ts`: SHA-256 contentHash (변경 감지)
+  - `src/renderer/types/embedding.ts`, `src/renderer/stores/embeddingStore.ts`: 벡터 저장/큐 관리 (CRUD + 영속화 + 인덱싱 배치)
+  - `src/renderer/lib/firestoreEmbeddingStorage.ts`: Firestore 서브컬렉션 임베딩 저장소
+  - `src/renderer/stores/ragStore.ts`: RAG 상태 관리 (checkHealth, search, setEnabled, setThreshold, loadSettings)
+  - `src/renderer/lib/searchAll.ts`: ragResults 통합 (Command Palette 검색 결과 병합)
+  - `src/renderer/components/CommandPalette/`: health-check effect + RAG 검색 effect 추가
+  - `src/renderer/components/CommandPalette/RagStatusBadge.tsx`: Ollama 상태 배지 (준비됨/모델 누락/미탐지)
+  - `src/renderer/components/CommandPalette/ResultItem.tsx`: RAG 결과 variant 렌더링
+  - `src/renderer/components/ProgressToast/ProgressToast.tsx`: 인덱싱 진행률 Toast (AC-013, AC-014)
+  - `src/renderer/components/PivotLayout/SidebarSettings.tsx`: RAG 설정 섹션 (토글 + 임계값 슬라이더 + 재시도 버튼)
+  - `src/renderer/lib/migration.ts`: rag-embeddings 로컬 → Firestore 마이그레이션 (AC-018)
+  - App.tsx: 로그인 직후 임베딩 복원 + 누락 링크 자동 인덱싱 (AC-012)
+
+### Changed
+
+- `src/renderer/stores/ragStore.ts`: loadSettings() 추가 — `rag-settings` 스토리지 키로 enabled/similarityThreshold 영속화 (AC-032)
+- `src/renderer/stores/bookmarkStore.ts`: 북마크 저장/삭제 시 embeddingStore 연동 (enqueueIndex, removeEmbedding)
+
 ## [0.7.0] - 2026-04-19
 
 ### Added
