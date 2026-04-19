@@ -1,16 +1,18 @@
 // @MX:ANCHOR: [AUTO] CommandPalette — fuzzy search 기반 전역 검색 오버레이 컴포넌트
-// @MX:REASON: [AUTO] App.tsx에서 마운트되며, 북마크/카테고리/태그/액션을 통합 검색하는 핵심 UI
-// @MX:SPEC: SPEC-UX-002
-import { useEffect, useRef, useCallback, useMemo, useDeferredValue } from 'react'
+// @MX:REASON: [AUTO] App.tsx에서 마운트되며, 북마크/카테고리/태그/액션/RAG를 통합 검색하는 핵심 UI
+// @MX:SPEC: SPEC-UX-002, SPEC-SEARCH-RAG-001
+import { useEffect, useRef, useCallback, useMemo, useDeferredValue, useState } from 'react'
 import { useBookmarkStore } from '../../stores/bookmarkStore'
 import { useTagStore } from '../../stores/tagStore'
 import { useCommandStore } from '../../stores/commandStore'
 import { useUsageStore } from '../../stores/usageStore'
 import { useViewModeStore } from '../../stores/viewModeStore'
 import { useCapsuleStore } from '../../stores/capsuleStore'
+import { useRagStore } from '../../stores/ragStore'
 import { searchAll } from '../../lib/searchAll'
-import type { PaletteAction, SearchResult } from '../../lib/searchAll'
+import type { PaletteAction, SearchResult, RagSearchResult } from '../../lib/searchAll'
 import ResultItem from './ResultItem'
+import RagStatusBadge from './RagStatusBadge'
 
 /** CommandPalette 컴포넌트 props */
 export interface CommandPaletteProps {
@@ -47,6 +49,7 @@ const GROUP_LABELS: Record<string, string> = {
   category: '카테고리',
   tag: '태그',
   action: '액션',
+  rag: 'RAG',
 }
 
 /**
@@ -115,6 +118,15 @@ export default function CommandPalette({
   const activateCapsuleAction = useCapsuleStore((s) => s.activateCapsule)
   const archiveCapsuleAction = useCapsuleStore((s) => s.archiveCapsule)
 
+  // @MX:NOTE: [AUTO] SPEC-SEARCH-RAG-001 REQ-012 — RAG 결과 그룹 통합 + 상태 배지
+  // ragStore 반응형 구독 (enabled, ollamaAvailable, modelMissing)
+  const ragEnabled = useRagStore((s) => s.enabled)
+  const ollamaAvailable = useRagStore((s) => s.ollamaAvailable)
+  const modelMissing = useRagStore((s) => s.modelMissing)
+
+  // RAG 검색 결과 상태 (비동기 search() 결과)
+  const [ragResults, setRagResults] = useState<RagSearchResult[]>([])
+
   // 검색 성능 최적화: useDeferredValue로 타이핑 지연 처리
   const deferredQuery = useDeferredValue(query)
 
@@ -129,6 +141,55 @@ export default function CommandPalette({
       })
     }
   }, [isOpen, setQuery, setSelectedIndex])
+
+  // 마운트 시 Ollama health check 1회 실행 (REQ-001)
+  useEffect(() => {
+    void useRagStore.getState().checkHealth()
+  }, [])
+
+  // @MX:NOTE: [AUTO] SPEC-SEARCH-RAG-001 REQ-012 — deferredQuery 변경 시 RAG 비동기 검색
+  // stale 요청 방지를 위한 취소 플래그 패턴
+  useEffect(() => {
+    let cancelled = false
+
+    // 조기 종료 조건: RAG 비활성, Ollama 미연결, 모델 없음
+    if (!ragEnabled || !ollamaAvailable || modelMissing) {
+      setRagResults([])
+      return
+    }
+    // 쿼리 4자 미만 → 빈 결과
+    if (deferredQuery.trim().length < 4) {
+      setRagResults([])
+      return
+    }
+
+    void useRagStore.getState().search(deferredQuery).then((raw) => {
+      if (cancelled) return
+
+      // RagResult(linkId, categoryId, score) → RagSearchResult(+ link + matchedRanges)
+      const resolved: RagSearchResult[] = raw
+        .map((r) => {
+          const cat = bookmarks.find((c) => c.id === r.categoryId)
+          const link = cat?.links.find((l) => l.id === r.linkId)
+          if (link === undefined) return null
+          return {
+            kind: 'rag' as const,
+            linkId: r.linkId,
+            categoryId: r.categoryId,
+            score: r.score,
+            link,
+            matchedRanges: [] as [number, number][],
+          }
+        })
+        .filter((x): x is RagSearchResult => x !== null)
+
+      setRagResults(resolved)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [deferredQuery, ragEnabled, ollamaAvailable, modelMissing, bookmarks])
 
   // 내장 액션 목록
   const paletteActions: PaletteAction[] = useMemo(
@@ -318,8 +379,10 @@ export default function CommandPalette({
       tags: tagStrings,
       actions: paletteActions,
       getUsageScore: (type, id) => getScore(type as 'bookmark' | 'category' | 'tag' | 'action', id),
+      // RAG 결과: 활성화된 경우에만 전달
+      ragResults: (ragEnabled && ollamaAvailable && !modelMissing) ? ragResults : undefined,
     })
-  }, [deferredQuery, bookmarks, tagStrings, paletteActions, getScore])
+  }, [deferredQuery, bookmarks, tagStrings, paletteActions, getScore, ragEnabled, ollamaAvailable, modelMissing, ragResults])
 
   // 렌더링 아이템 목록 (그룹 헤더 포함)
   const renderItems = useMemo(() => buildRenderItems(searchResults), [searchResults])
@@ -368,6 +431,10 @@ export default function CommandPalette({
         recordUsage('action', selected.action.id)
         selected.action.execute()
         // execute 내에서 handleClose 호출됨
+      } else if (selected.kind === 'rag') {
+        // RAG 결과: 북마크와 동일하게 새 탭으로 열기
+        window.open(selected.link.url, '_blank', 'noopener')
+        handleClose()
       }
     },
     [searchResults, selectedIndex, recordUsage, onEditBookmark, onSelectBookmark, onSelectCategory, onSelectTag, handleClose],
@@ -425,6 +492,18 @@ export default function CommandPalette({
         aria-modal="true"
         aria-label="명령 팔레트"
       >
+        {/* RAG 상태 배지 (팔레트 헤더 영역) */}
+        <div
+          className="command-palette-rag-badge"
+          style={{ padding: '4px 12px 0', display: 'flex', justifyContent: 'flex-end' }}
+        >
+          <RagStatusBadge
+            ollamaAvailable={ollamaAvailable}
+            modelMissing={modelMissing}
+            onRetry={() => { void useRagStore.getState().checkHealth() }}
+          />
+        </div>
+
         {/* 검색 입력 */}
         <input
           ref={inputRef}

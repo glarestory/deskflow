@@ -1,5 +1,5 @@
-// @MX:SPEC: SPEC-UX-002
-// ResultItem 컴포넌트 단위 테스트 — 4종 variant 렌더링 검증
+// @MX:SPEC: SPEC-UX-002, SPEC-SEARCH-RAG-001
+// ResultItem 컴포넌트 단위 테스트 — 5종 variant 렌더링 검증 (bookmark/category/tag/action/rag)
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
@@ -275,5 +275,130 @@ describe('ResultItem', () => {
     )
     const item = screen.getByRole('option')
     expect(item).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  // --- RAG variant (SPEC-SEARCH-RAG-001 REQ-012) ---
+
+  const mockRagResult: SearchResult = {
+    kind: 'rag',
+    linkId: 'link-rag-1',
+    categoryId: 'cat-1',
+    score: 0.85,
+    link: {
+      id: 'link-rag-1',
+      name: 'Ollama GitHub',
+      url: 'https://github.com/ollama/ollama',
+      tags: ['ai', 'llm'],
+    },
+    matchedRanges: [],
+  }
+
+  it('rag variant: 링크 이름이 렌더링된다', () => {
+    render(
+      <ResultItem
+        result={mockRagResult}
+        isSelected={false}
+        onSelect={vi.fn()}
+        onHover={vi.fn()}
+        index={4}
+      />,
+    )
+    const item = screen.getByRole('option')
+    expect(item.textContent).toContain('Ollama GitHub')
+  })
+
+  it('rag variant: URL 도메인이 서브텍스트로 표시된다', () => {
+    render(
+      <ResultItem
+        result={mockRagResult}
+        isSelected={false}
+        onSelect={vi.fn()}
+        onHover={vi.fn()}
+        index={4}
+      />,
+    )
+    expect(screen.getByText(/github\.com/)).toBeInTheDocument()
+  })
+
+  it('rag variant: 유사도 점수가 2자리 소수점으로 표시된다', () => {
+    render(
+      <ResultItem
+        result={mockRagResult}
+        isSelected={false}
+        onSelect={vi.fn()}
+        onHover={vi.fn()}
+        index={4}
+      />,
+    )
+    // score=0.85 → "0.85"
+    expect(screen.getByText('0.85')).toBeInTheDocument()
+  })
+
+  it('rag variant: 아이콘(✦)이 표시된다', () => {
+    render(
+      <ResultItem
+        result={mockRagResult}
+        isSelected={false}
+        onSelect={vi.fn()}
+        onHover={vi.fn()}
+        index={4}
+      />,
+    )
+    expect(screen.getByText('✦')).toBeInTheDocument()
+  })
+
+  it('rag variant: role="option" 속성이 설정된다', () => {
+    render(
+      <ResultItem
+        result={mockRagResult}
+        isSelected={false}
+        onSelect={vi.fn()}
+        onHover={vi.fn()}
+        index={4}
+      />,
+    )
+    expect(screen.getByRole('option')).toBeInTheDocument()
+  })
+
+  it('rag variant: isSelected=true 시 aria-selected="true"', () => {
+    render(
+      <ResultItem
+        result={mockRagResult}
+        isSelected={true}
+        onSelect={vi.fn()}
+        onHover={vi.fn()}
+        index={4}
+      />,
+    )
+    expect(screen.getByRole('option')).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it('rag variant: 클릭 시 onSelect가 호출된다', () => {
+    const onSelect = vi.fn()
+    render(
+      <ResultItem
+        result={mockRagResult}
+        isSelected={false}
+        onSelect={onSelect}
+        onHover={vi.fn()}
+        index={4}
+      />,
+    )
+    fireEvent.mouseDown(screen.getByRole('option'))
+    expect(onSelect).toHaveBeenCalledWith(4)
+  })
+
+  it('rag variant: score badge에 aria-label이 있다', () => {
+    render(
+      <ResultItem
+        result={mockRagResult}
+        isSelected={false}
+        onSelect={vi.fn()}
+        onHover={vi.fn()}
+        index={4}
+      />,
+    )
+    const badge = screen.getByLabelText('유사도 점수 0.85')
+    expect(badge).toBeInTheDocument()
   })
 })

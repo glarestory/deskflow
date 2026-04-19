@@ -1,6 +1,7 @@
-// @MX:NOTE: [AUTO] ResultItem — 검색 결과 항목 컴포넌트 (4종 variant)
-// @MX:SPEC: SPEC-UX-002
+// @MX:NOTE: [AUTO] ResultItem — 검색 결과 항목 컴포넌트 (5종 variant: bookmark/category/tag/action/rag)
+// @MX:SPEC: SPEC-UX-002, SPEC-SEARCH-RAG-001
 import type { SearchResult } from '../../lib/searchAll'
+import { formatScore } from './RagStatusBadge'
 
 interface ResultItemProps {
   result: SearchResult
@@ -50,7 +51,7 @@ function HighlightText({
 
 /**
  * 검색 결과 단일 항목 렌더링.
- * bookmark / category / tag / action 4종 variant 지원.
+ * bookmark / category / tag / action / rag 5종 variant 지원.
  */
 export default function ResultItem({
   result,
@@ -62,6 +63,11 @@ export default function ResultItem({
   const handleMouseDown = (e: React.MouseEvent): void => {
     e.preventDefault()
     if (result.kind === 'action' && result.action.disabled) return
+    onSelect(index)
+  }
+
+  const handleRagMouseDown = (e: React.MouseEvent): void => {
+    e.preventDefault()
     onSelect(index)
   }
 
@@ -79,13 +85,16 @@ export default function ResultItem({
     .filter(Boolean)
     .join(' ')
 
+  // RAG 결과는 별도 mouseDown 핸들러 사용 (disabled 검사 불필요)
+  const mouseDownHandler = result.kind === 'rag' ? handleRagMouseDown : handleMouseDown
+
   return (
     <li
       role="option"
       aria-selected={isSelected}
       aria-disabled={isDisabled || undefined}
       className={baseClass}
-      onMouseDown={handleMouseDown}
+      onMouseDown={mouseDownHandler}
       onMouseEnter={handleMouseEnter}
       data-index={index}
     >
@@ -100,6 +109,9 @@ export default function ResultItem({
       )}
       {result.kind === 'action' && (
         <ActionVariant result={result} />
+      )}
+      {result.kind === 'rag' && (
+        <RagVariant result={result} />
       )}
     </li>
   )
@@ -190,6 +202,37 @@ function ActionVariant({
         )}
       </div>
       <span className="result-item__badge">액션</span>
+    </div>
+  )
+}
+
+// @MX:NOTE: [AUTO] SPEC-SEARCH-RAG-001 REQ-012 — RAG 결과 항목 렌더링 (아이콘 · 이름 · 점수 · URL)
+function RagVariant({
+  result,
+}: {
+  result: Extract<SearchResult, { kind: 'rag' }>
+}): JSX.Element {
+  const domain = (() => {
+    try {
+      return new URL(result.link.url).hostname.replace('www.', '')
+    } catch {
+      return result.link.url
+    }
+  })()
+
+  return (
+    <div className="result-item__content">
+      <span className="result-item__icon" aria-hidden="true">✦</span>
+      <div className="result-item__text">
+        <span className="result-item__label">{result.link.name}</span>
+        <span className="result-item__subtext">{domain}</span>
+      </div>
+      <span
+        className="result-item__badge result-item__badge--score"
+        aria-label={`유사도 점수 ${formatScore(result.score)}`}
+      >
+        {formatScore(result.score)}
+      </span>
     </div>
   )
 }

@@ -1,5 +1,5 @@
-// @MX:SPEC: SPEC-UX-001, SPEC-UX-002
-// Command Palette 컴포넌트 테스트 — SPEC-UX-001 기존 기능 + SPEC-UX-002 신규 기능 검증
+// @MX:SPEC: SPEC-UX-001, SPEC-UX-002, SPEC-SEARCH-RAG-001
+// Command Palette 컴포넌트 테스트 — SPEC-UX-001 기존 기능 + SPEC-UX-002 신규 기능 + RAG 통합 검증
 // 참고: SPEC-UX-002 리팩터링으로 인해 할일(Todo) 검색, Google 검색 폴백, 최근 검색어 UI가 제거됨
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -14,6 +14,37 @@ vi.mock('../../stores/embeddingStore', () => ({
     })),
   },
 }))
+
+// ragStore 모킹 — 기본: 정상 동작 (ollamaAvailable=true, modelMissing=false)
+const mockCheckHealth = vi.fn().mockResolvedValue(undefined)
+const mockSearch = vi.fn().mockResolvedValue([])
+
+vi.mock('../../stores/ragStore', () => {
+  // Zustand 훅 패턴: useRagStore(selector) 형태와 getState() 모두 지원
+  let ragState = {
+    enabled: true,
+    ollamaAvailable: true,
+    modelMissing: false,
+    similarityThreshold: 0.70,
+    lastHealthCheck: null as string | null,
+    checkHealth: mockCheckHealth,
+    search: mockSearch,
+    setEnabled: vi.fn(),
+    setThreshold: vi.fn(),
+  }
+
+  const useRagStore = (selector?: (s: typeof ragState) => unknown) => {
+    if (selector) return selector(ragState)
+    return ragState
+  }
+  useRagStore.getState = () => ragState
+  useRagStore.setState = (partial: Partial<typeof ragState>) => {
+    ragState = { ...ragState, ...partial }
+  }
+  useRagStore.subscribe = vi.fn()
+
+  return { useRagStore, __ragState: ragState }
+})
 
 // storage 모킹
 const mockGet = vi.fn()
@@ -246,5 +277,141 @@ describe('CommandPalette', () => {
     fireEvent.keyDown(input, { key: 'Enter', metaKey: true })
 
     expect(mockWindowOpen).toHaveBeenCalledWith('https://github.com', '_blank')
+  })
+})
+
+// ─── SPEC-SEARCH-RAG-001 Phase 5 통합 테스트 ─────────────────────────────────
+
+describe('CommandPalette RAG 통합 (SPEC-SEARCH-RAG-001)', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    vi.resetModules()
+    vi.stubGlobal('storage', { get: vi.fn().mockResolvedValue({ value: null }), set: vi.fn() })
+    vi.stubGlobal('open', mockWindowOpen)
+    Object.keys(mockLocalStorage).forEach((k) => { delete mockLocalStorage[k] })
+    mockSearch.mockResolvedValue([])
+    mockCheckHealth.mockResolvedValue(undefined)
+  })
+
+  // AC-004: 배지 3가지 상태 — 녹색 "RAG 준비됨"
+  it('AC-004: ollamaAvailable=true && modelMissing=false → "RAG 준비됨" 배지 표시', async () => {
+    const { useRagStore } = await import('../../stores/ragStore')
+    // 정상 상태 설정
+    ;(useRagStore as unknown as { setState: (p: Record<string, unknown>) => void }).setState({
+      ollamaAvailable: true,
+      modelMissing: false,
+    })
+
+    const { default: CommandPalette } = await import('./CommandPalette')
+    render(<CommandPalette isOpen={true} onClose={vi.fn()} />)
+
+    expect(screen.getByText('RAG 준비됨')).toBeInTheDocument()
+  })
+
+  // AC-004: 배지 — 노랑 "모델 누락"
+  it('AC-004: ollamaAvailable=true && modelMissing=true → "모델 누락" 배지 표시', async () => {
+    // ragStore 모킹 재정의
+    vi.doMock('../../stores/ragStore', () => {
+      const ragState = {
+        enabled: true,
+        ollamaAvailable: true,
+        modelMissing: true,
+        similarityThreshold: 0.70,
+        lastHealthCheck: null,
+        checkHealth: mockCheckHealth,
+        search: mockSearch,
+        setEnabled: vi.fn(),
+        setThreshold: vi.fn(),
+      }
+      const useRagStore = (selector?: (s: typeof ragState) => unknown) =>
+        selector ? selector(ragState) : ragState
+      useRagStore.getState = () => ragState
+      useRagStore.setState = vi.fn()
+      useRagStore.subscribe = vi.fn()
+      return { useRagStore }
+    })
+
+    const { default: CommandPalette } = await import('./CommandPalette')
+    render(<CommandPalette isOpen={true} onClose={vi.fn()} />)
+
+    expect(screen.getByText('모델 누락')).toBeInTheDocument()
+  })
+
+  // AC-004: 배지 — 빨강 "Ollama 미탐지" + RAG 섹션 없음
+  it('AC-004: ollamaAvailable=false → "Ollama 미탐지" 배지 표시', async () => {
+    vi.doMock('../../stores/ragStore', () => {
+      const ragState = {
+        enabled: true,
+        ollamaAvailable: false,
+        modelMissing: false,
+        similarityThreshold: 0.70,
+        lastHealthCheck: null,
+        checkHealth: mockCheckHealth,
+        search: mockSearch,
+        setEnabled: vi.fn(),
+        setThreshold: vi.fn(),
+      }
+      const useRagStore = (selector?: (s: typeof ragState) => unknown) =>
+        selector ? selector(ragState) : ragState
+      useRagStore.getState = () => ragState
+      useRagStore.setState = vi.fn()
+      useRagStore.subscribe = vi.fn()
+      return { useRagStore }
+    })
+
+    const { default: CommandPalette } = await import('./CommandPalette')
+    render(<CommandPalette isOpen={true} onClose={vi.fn()} />)
+
+    expect(screen.getByText('Ollama 미탐지')).toBeInTheDocument()
+  })
+
+  // AC-019: 쿼리 4자 미만 → RAG 섹션 없음
+  it('AC-019: 쿼리 3자 → RAG 결과 없음', async () => {
+    // search()가 빈 배열 반환하도록 (4자 미만 조기 반환)
+    mockSearch.mockResolvedValue([])
+
+    const { default: CommandPalette } = await import('./CommandPalette')
+    render(<CommandPalette isOpen={true} onClose={vi.fn()} />)
+
+    const input = screen.getByRole('combobox')
+    fireEvent.change(input, { target: { value: 'abc' } })
+
+    // RAG 그룹 헤더가 없어야 함
+    const headers = document.querySelectorAll('.command-palette-group-header')
+    const ragHeader = Array.from(headers).find((el) => el.textContent === 'RAG')
+    expect(ragHeader).toBeUndefined()
+  })
+
+  // AC-029: RAG 비활성화 시 결과 없음
+  it('AC-029: enabled=false → RAG 섹션 없음', async () => {
+    vi.doMock('../../stores/ragStore', () => {
+      const ragState = {
+        enabled: false,
+        ollamaAvailable: true,
+        modelMissing: false,
+        similarityThreshold: 0.70,
+        lastHealthCheck: null,
+        checkHealth: mockCheckHealth,
+        search: mockSearch,
+        setEnabled: vi.fn(),
+        setThreshold: vi.fn(),
+      }
+      const useRagStore = (selector?: (s: typeof ragState) => unknown) =>
+        selector ? selector(ragState) : ragState
+      useRagStore.getState = () => ragState
+      useRagStore.setState = vi.fn()
+      useRagStore.subscribe = vi.fn()
+      return { useRagStore }
+    })
+
+    const { default: CommandPalette } = await import('./CommandPalette')
+    render(<CommandPalette isOpen={true} onClose={vi.fn()} />)
+
+    const input = screen.getByRole('combobox')
+    fireEvent.change(input, { target: { value: '자연어 검색 테스트' } })
+
+    const headers = document.querySelectorAll('.command-palette-group-header')
+    const ragHeader = Array.from(headers).find((el) => el.textContent === 'RAG')
+    expect(ragHeader).toBeUndefined()
   })
 })
