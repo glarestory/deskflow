@@ -7,6 +7,7 @@ import { useTagStore } from '../../stores/tagStore'
 import { useCommandStore } from '../../stores/commandStore'
 import { useUsageStore } from '../../stores/usageStore'
 import { useViewModeStore } from '../../stores/viewModeStore'
+import { useCapsuleStore } from '../../stores/capsuleStore'
 import { searchAll } from '../../lib/searchAll'
 import type { PaletteAction, SearchResult } from '../../lib/searchAll'
 import ResultItem from './ResultItem'
@@ -26,6 +27,12 @@ export interface CommandPaletteProps {
   onAddCategory?: () => void
   /** SPEC-UX-005: Pivot ↔ 위젯 모드 전환 핸들러 */
   onToggleViewMode?: () => void
+  /** SPEC-CAPSULE-001 REQ-013: 캡슐 편집 모달 열기 (신규 생성) */
+  onOpenCreateCapsule?: () => void
+  /** SPEC-CAPSULE-001 REQ-013: 캡슐 목록 패널 열기 */
+  onOpenCapsuleList?: () => void
+  /** SPEC-CAPSULE-001 REQ-013: 특정 캡슐 편집 모달 열기 */
+  onEditCapsule?: (capsuleId: string) => void
   // 결과 선택 콜백 (SPEC-UX-003 통합 예정)
   onSelectBookmark?: (linkId: string, categoryId: string) => void
   onSelectCategory?: (categoryId: string) => void
@@ -85,6 +92,9 @@ export default function CommandPalette({
   onRefreshFeed,
   onAddCategory,
   onToggleViewMode,
+  onOpenCreateCapsule,
+  onOpenCapsuleList,
+  onEditCapsule,
   onSelectBookmark,
   onSelectCategory,
   onSelectTag,
@@ -99,6 +109,11 @@ export default function CommandPalette({
   const { recordUsage, getScore } = useUsageStore()
   // @MX:NOTE: [AUTO] SPEC-UX-005: 현재 viewMode에 따라 토글 액션 레이블 동적 변경
   const { mode: viewMode } = useViewModeStore()
+  // @MX:NOTE: [AUTO] SPEC-CAPSULE-001 REQ-013: 캡슐 동적 액션 + 해제 상태 판단
+  const capsules = useCapsuleStore((s) => s.capsules)
+  const activeCapsuleId = useCapsuleStore((s) => s.activeCapsuleId)
+  const activateCapsuleAction = useCapsuleStore((s) => s.activateCapsule)
+  const archiveCapsuleAction = useCapsuleStore((s) => s.archiveCapsule)
 
   // 검색 성능 최적화: useDeferredValue로 타이핑 지연 처리
   const deferredQuery = useDeferredValue(query)
@@ -210,9 +225,85 @@ export default function CommandPalette({
           handleClose()
         },
       },
+      // @MX:NOTE: [AUTO] SPEC-CAPSULE-001 REQ-013: 캡슐 정적 액션 (new/list/deactivate)
+      {
+        id: 'action-capsule-new',
+        label: '캡슐: 새로 만들기',
+        keywords: ['capsule', '캡슐', 'new', '새로', '만들기', 'create'],
+        icon: '📦',
+        execute: () => {
+          onOpenCreateCapsule?.()
+          handleClose()
+        },
+      },
+      {
+        id: 'action-capsule-list',
+        label: '캡슐: 모든 캡슐 보기',
+        keywords: ['capsule', '캡슐', 'list', '목록', '모든'],
+        icon: '📚',
+        execute: () => {
+          onOpenCapsuleList?.()
+          handleClose()
+        },
+      },
+      // REQ-013: 활성 캡슐이 있을 때만 편집/해제 액션 노출
+      ...(activeCapsuleId !== null
+        ? [
+            {
+              id: 'action-capsule-edit-active',
+              label: '캡슐: 활성 캡슐 편집',
+              keywords: ['capsule', '캡슐', 'edit', '편집'],
+              icon: '✏️',
+              execute: (): void => {
+                if (activeCapsuleId !== null) {
+                  onEditCapsule?.(activeCapsuleId)
+                }
+                handleClose()
+              },
+            },
+            {
+              id: 'action-capsule-deactivate',
+              label: '캡슐: 해제',
+              keywords: ['capsule', '캡슐', 'deactivate', '해제'],
+              icon: '⏹️',
+              execute: (): void => {
+                void activateCapsuleAction(null)
+                handleClose()
+              },
+            },
+          ]
+        : []),
+      // REQ-013: 각 비보관 캡슐별 "활성화" 액션 (동적)
+      ...capsules
+        .filter((c) => !c.archived && c.id !== activeCapsuleId)
+        .map(
+          (c): PaletteAction => ({
+            id: `action-capsule-activate-${c.id}`,
+            label: `캡슐: 활성화 ${c.emoji ?? '📦'} ${c.name}`,
+            keywords: ['capsule', '캡슐', 'activate', '활성화', c.name.toLowerCase(), ...(c.tags ?? [])],
+            icon: c.emoji ?? '📦',
+            execute: () => {
+              void activateCapsuleAction(c.id)
+              handleClose()
+            },
+          }),
+        ),
+      // REQ-013: 각 캡슐별 "보관/복원" 액션 (동적)
+      ...capsules.map(
+        (c): PaletteAction => ({
+          id: `action-capsule-archive-${c.id}`,
+          label: c.archived ? `캡슐: 복원 ${c.name}` : `캡슐: 보관 ${c.name}`,
+          keywords: ['capsule', '캡슐', c.archived ? 'restore' : 'archive', c.archived ? '복원' : '보관', c.name.toLowerCase()],
+          icon: c.archived ? '♻️' : '🗄️',
+          execute: () => {
+            archiveCapsuleAction(c.id, !c.archived)
+            handleClose()
+          },
+        }),
+      ),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [onToggleTheme, onOpenImport, onResetLayout, onSignOut, onOpenQuickCapture, onOpenDedup, onRefreshFeed, onAddCategory, onToggleViewMode, viewMode],
+    [onToggleTheme, onOpenImport, onResetLayout, onSignOut, onOpenQuickCapture, onOpenDedup, onRefreshFeed, onAddCategory, onToggleViewMode, viewMode, onOpenCreateCapsule, onOpenCapsuleList, onEditCapsule, capsules, activeCapsuleId, activateCapsuleAction, archiveCapsuleAction],
   )
 
   // 태그 문자열 배열 추출

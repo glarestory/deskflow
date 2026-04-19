@@ -1,6 +1,6 @@
 // @MX:NOTE: [AUTO] WidgetLayout — 기존 ReactGridLayout 기반 드래그 위젯 그리드 레이아웃 컴포넌트
 // @MX:NOTE: [AUTO] App.tsx에서 추출 (SPEC-UX-005 T-003). viewMode === 'widgets'일 때 렌더링됨
-// @MX:SPEC: SPEC-UX-005, SPEC-LAYOUT-001, SPEC-UI-001
+// @MX:SPEC: SPEC-UX-005, SPEC-LAYOUT-001, SPEC-UI-001, SPEC-CAPSULE-001
 import ReactGridLayout from 'react-grid-layout'
 import { WidthProvider } from 'react-grid-layout/legacy'
 import 'react-grid-layout/css/styles.css'
@@ -17,6 +17,7 @@ import BookmarkCard from '../BookmarkCard/BookmarkCard'
 import TodoWidget from '../TodoWidget/TodoWidget'
 import NotesWidget from '../NotesWidget/NotesWidget'
 import FeedWidget from '../FeedWidget/FeedWidget'
+import CapsuleSwitcher from '../CapsuleSwitcher/CapsuleSwitcher'
 
 // @MX:NOTE: [AUTO] WidthProvider가 컨테이너 너비를 자동 측정하여 그리드에 주입 (반응형)
 const ResponsiveGridLayout = WidthProvider(ReactGridLayout)
@@ -42,6 +43,10 @@ export interface WidgetLayoutProps {
   onSetEditingCategory: (category: Category | null) => void
   /** Pivot 모드로 전환 */
   onTogglePivotMode: () => void
+  /** SPEC-CAPSULE-001: 캡슐 목록 패널 열기 */
+  onOpenCapsuleList: () => void
+  /** SPEC-CAPSULE-001: 신규 캡슐 생성 모달 열기 */
+  onOpenCreateCapsule: () => void
 }
 
 /**
@@ -56,6 +61,8 @@ export default function WidgetLayout({
   onOpenDedup,
   onSetEditingCategory,
   onTogglePivotMode,
+  onOpenCapsuleList,
+  onOpenCreateCapsule,
 }: WidgetLayoutProps): JSX.Element {
   const { bookmarks, exportBookmarks } = useBookmarkStore()
   const { mode, toggleMode } = useThemeStore()
@@ -115,6 +122,11 @@ export default function WidgetLayout({
           >
             My Hub
           </span>
+          {/* @MX:NOTE: [AUTO] SPEC-CAPSULE-001 REQ-012: 상단 바 좌측 CapsuleSwitcher */}
+          <CapsuleSwitcher
+            onOpenList={onOpenCapsuleList}
+            onOpenCreate={onOpenCreateCapsule}
+          />
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           {/* 사용자 정보 및 로그아웃 */}

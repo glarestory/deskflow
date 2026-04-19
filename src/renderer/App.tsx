@@ -11,6 +11,7 @@ import type { WidgetLayout } from './stores/layoutStore'
 import { useViewModeStore } from './stores/viewModeStore'
 import { useFeedStore } from './stores/feedStore'
 import { usePomodoroStore } from './stores/pomodoroStore'
+import { useCapsuleStore } from './stores/capsuleStore'
 import { setUserStorage } from './lib/storage'
 import { migrateLocalToFirestore } from './lib/migration'
 import { darkTheme, lightTheme } from './styles/themes'
@@ -20,11 +21,14 @@ import LoginScreen from './components/LoginScreen/LoginScreen'
 import CommandPalette from './components/CommandPalette/CommandPalette'
 import QuickCapture from './components/QuickCapture/QuickCapture'
 import DedupModal from './components/DedupModal/DedupModal'
+import CapsuleEditModal from './components/CapsuleEditModal/CapsuleEditModal'
+import CapsuleListPanel from './components/CapsuleListPanel/CapsuleListPanel'
 import { useCommandPalette } from './hooks/useCommandPalette'
 import { useViewStore } from './stores/viewStore'
 import PivotLayout from './components/PivotLayout/PivotLayout'
 import WidgetLayoutComponent from './components/WidgetLayout/WidgetLayout'
 import type { Category } from './types'
+import type { Capsule } from './types/capsule'
 
 export default function App(): JSX.Element {
   const { user, loading: authLoading, initAuth, signOut } = useAuthStore()
@@ -41,11 +45,22 @@ export default function App(): JSX.Element {
   // @MX:NOTE: [AUTO] SPEC-WIDGET-004: pomodoroStore 설정 복원
   // 버그 수정: loadSettings 부재로 focus/break 설정이 앱 재시작 시 기본값으로 돌아감
   const { loadSettings: loadPomodoroSettings } = usePomodoroStore()
+  // @MX:NOTE: [AUTO] SPEC-CAPSULE-001: capsuleStore 로드 + 캡슐 액션 (REQ-003, REQ-006, REQ-018)
+  const {
+    loadCapsules,
+    createCapsule,
+    updateCapsule,
+    deleteCapsule,
+  } = useCapsuleStore()
 
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [showImportModal, setShowImportModal] = useState(false)
   const [showQuickCapture, setShowQuickCapture] = useState(false)
   const [showDedupModal, setShowDedupModal] = useState(false)
+  // @MX:NOTE: [AUTO] SPEC-CAPSULE-001 REQ-009, REQ-015: 캡슐 편집 모달 / 목록 패널 상태
+  // editingCapsule === 'new' → 신규 생성, Capsule → 기존 편집, null → 닫힘
+  const [editingCapsule, setEditingCapsule] = useState<Capsule | 'new' | null>(null)
+  const [showCapsuleList, setShowCapsuleList] = useState(false)
 
   // REQ-001: Cmd+K / Ctrl+K 단축키로 Command Palette 열기
   const { isOpen: isPaletteOpen, closePalette } = useCommandPalette()
@@ -77,10 +92,31 @@ export default function App(): JSX.Element {
       void loadFeeds()
       // SPEC-WIDGET-004: 저장된 포모도로 설정 복원 (버그 수정)
       void loadPomodoroSettings()
+      // SPEC-CAPSULE-001: 저장된 캡슐 복원
+      void loadCapsules()
     }
 
     void setupAndLoad()
-  }, [user, authLoading, loadBookmarks, loadTodos, loadTheme, loadLayout, loadMode, loadFeeds, loadPomodoroSettings])
+  }, [user, authLoading, loadBookmarks, loadTodos, loadTheme, loadLayout, loadMode, loadFeeds, loadPomodoroSettings, loadCapsules])
+
+  // @MX:NOTE: [AUTO] SPEC-CAPSULE-001 REQ-014: Cmd/Ctrl+Shift+N — 신규 캡슐 생성 단축키 (AC-023)
+  // Hook은 early return 이전에 호출되어야 함 (React Hooks 규칙)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      // 입력 필드 포커스 중에는 동작 안 함
+      const target = e.target as HTMLElement | null
+      const tagName = target?.tagName
+      if (tagName === 'INPUT' || tagName === 'TEXTAREA' || target?.isContentEditable === true) {
+        return
+      }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'N' || e.key === 'n')) {
+        e.preventDefault()
+        setEditingCapsule('new')
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   // 인증 로딩 중
   if (authLoading) {
@@ -156,11 +192,30 @@ export default function App(): JSX.Element {
     updateLayout(newLayout)
   }
 
+  // SPEC-CAPSULE-001 REQ-009: 캡슐 저장 핸들러 (신규 생성 또는 기존 편집)
+  const handleSaveCapsule = (data: Partial<Capsule>): void => {
+    if (editingCapsule === 'new' || editingCapsule === null) {
+      createCapsule(data)
+    } else {
+      updateCapsule(editingCapsule.id, data)
+    }
+    setEditingCapsule(null)
+  }
+
+  // SPEC-CAPSULE-001 REQ-018: 캡슐 삭제 핸들러
+  const handleDeleteCapsule = (id: string): void => {
+    deleteCapsule(id)
+    setEditingCapsule(null)
+  }
+
   return (
     <div style={{ ...(theme as React.CSSProperties), height: '100%' }}>
       {/* @MX:NOTE: [AUTO] SPEC-UX-005: viewMode 분기 — pivot: PivotLayout, widgets: WidgetLayout */}
       {viewMode === 'pivot' ? (
-        <PivotLayout />
+        <PivotLayout
+          onOpenCapsuleList={() => setShowCapsuleList(true)}
+          onOpenCreateCapsule={() => setEditingCapsule('new')}
+        />
       ) : (
         <WidgetLayoutComponent
           handleAddCategory={handleAddCategory}
@@ -170,6 +225,8 @@ export default function App(): JSX.Element {
           onOpenDedup={() => setShowDedupModal(true)}
           onSetEditingCategory={setEditingCategory}
           onTogglePivotMode={toggleViewMode}
+          onOpenCapsuleList={() => setShowCapsuleList(true)}
+          onOpenCreateCapsule={() => setEditingCapsule('new')}
         />
       )}
 
@@ -193,7 +250,26 @@ export default function App(): JSX.Element {
         isOpen={showDedupModal}
         onClose={() => setShowDedupModal(false)}
       />
-      {/* Command Palette — REQ-001: Cmd+K / Ctrl+K, SPEC-UX-002 */}
+      {/* @MX:NOTE: [AUTO] SPEC-CAPSULE-001 REQ-009: 캡슐 편집 모달 */}
+      {editingCapsule !== null && (
+        <CapsuleEditModal
+          capsule={editingCapsule === 'new' ? null : editingCapsule}
+          onSave={handleSaveCapsule}
+          onClose={() => setEditingCapsule(null)}
+          onDelete={editingCapsule !== 'new' ? handleDeleteCapsule : undefined}
+        />
+      )}
+      {/* @MX:NOTE: [AUTO] SPEC-CAPSULE-001 REQ-015: 캡슐 목록 패널 */}
+      {showCapsuleList && (
+        <CapsuleListPanel
+          onEdit={(cap) => {
+            setShowCapsuleList(false)
+            setEditingCapsule(cap)
+          }}
+          onClose={() => setShowCapsuleList(false)}
+        />
+      )}
+      {/* Command Palette — REQ-001: Cmd+K / Ctrl+K, SPEC-UX-002, SPEC-CAPSULE-001 REQ-013 */}
       <CommandPalette
         isOpen={isPaletteOpen}
         onClose={closePalette}
@@ -205,6 +281,12 @@ export default function App(): JSX.Element {
         onOpenDedup={() => setShowDedupModal(true)}
         onAddCategory={handleAddCategory}
         onToggleViewMode={toggleViewMode}
+        onOpenCreateCapsule={() => setEditingCapsule('new')}
+        onOpenCapsuleList={() => setShowCapsuleList(true)}
+        onEditCapsule={(capsuleId) => {
+          const cap = useCapsuleStore.getState().capsules.find((c) => c.id === capsuleId)
+          if (cap !== undefined) setEditingCapsule(cap)
+        }}
         onSelectCategory={(categoryId) => {
           // SPEC-UX-003: viewStore 카테고리 컨텍스트로 이동
           setPivotContext({ kind: 'category', categoryId })
