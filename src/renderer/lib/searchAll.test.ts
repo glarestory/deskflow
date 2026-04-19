@@ -1,8 +1,8 @@
-// @MX:SPEC: SPEC-UX-002
-// searchAll 통합 검색 단위 테스트 — 접두사 파싱, 그룹별 결과, 점수 가중치 검증
+// @MX:SPEC: SPEC-UX-002, SPEC-SEARCH-RAG-001
+// searchAll 통합 검색 단위 테스트 — 접두사 파싱, 그룹별 결과, 점수 가중치, RAG 통합 검증
 import { describe, it, expect } from 'vitest'
-import { searchAll, parsePrefix, type SearchInput } from './searchAll'
-import type { Category } from '../types'
+import { searchAll, parsePrefix, type SearchInput, type RagSearchResult } from './searchAll'
+import type { Category, Link } from '../types'
 
 // 테스트용 데이터셋
 const testCategories: Category[] = [
@@ -276,5 +276,129 @@ describe('searchAll', () => {
         expect(typeof result.categoryId).toBe('string')
       }
     }
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SPEC-SEARCH-RAG-001: RAG 결과 통합 테스트
+// @MX:NOTE: [AUTO] SPEC-SEARCH-RAG-001 REQ-012 — RAG 결과 그룹 통합 (action < category < tag < RAG < bookmark)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 테스트용 RagSearchResult 팩토리 */
+function makeRagResult(linkId: string, score: number): RagSearchResult {
+  const link: Link = {
+    id: linkId,
+    name: `Link ${linkId}`,
+    url: `https://example.com/${linkId}`,
+    tags: [],
+  }
+  return {
+    kind: 'rag',
+    linkId,
+    categoryId: 'cat-rag',
+    score,
+    link,
+    matchedRanges: [],
+  }
+}
+
+describe('searchAll — RAG 결과 통합 (SPEC-SEARCH-RAG-001)', () => {
+  // 테스트 1: ragResults가 전달되면 결과에 kind: 'rag' 항목이 포함된다
+  it('ragResults가 있고 쿼리 4자 이상이면 결과에 rag 항목이 포함된다 (REQ-012)', () => {
+    const ragResults: RagSearchResult[] = [
+      makeRagResult('rag-link-1', 0.90),
+      makeRagResult('rag-link-2', 0.75),
+    ]
+
+    const inputWithRag: SearchInput = {
+      ...testInput,
+      ragResults,
+    }
+
+    const results = searchAll('long query text', inputWithRag)
+    const ragItems = results.filter((r) => r.kind === 'rag')
+    expect(ragItems.length).toBeGreaterThan(0)
+    expect(ragItems.length).toBe(2)
+  })
+
+  // 테스트 2: ragResults가 빈 배열이면 기존 동작과 동일 (회귀 없음)
+  it('ragResults가 빈 배열이면 rag 항목이 없고 기존 동작이 유지된다 (REQ-013)', () => {
+    const inputWithEmpty: SearchInput = {
+      ...testInput,
+      ragResults: [],
+    }
+
+    const resultsWithEmpty = searchAll('github', inputWithEmpty)
+    const resultsWithout = searchAll('github', testInput)
+
+    const ragItems = resultsWithEmpty.filter((r) => r.kind === 'rag')
+    expect(ragItems.length).toBe(0)
+
+    // 기존 결과 종류는 동일해야 함
+    const kindsWithEmpty = new Set(resultsWithEmpty.map((r) => r.kind))
+    const kindsWithout = new Set(resultsWithout.map((r) => r.kind))
+    expect(kindsWithEmpty).toEqual(kindsWithout)
+  })
+
+  // 테스트 3: 순서 — action < category < tag < RAG < bookmark
+  it('그룹 순서: action → category → tag → RAG → bookmark (DEC-004)', () => {
+    // 각 그룹에 모두 매칭되도록 설계된 쿼리 세팅
+    const specialCategories: Category[] = [
+      {
+        id: 'cat-work',
+        name: 'devtools',
+        icon: '🛠',
+        links: [
+          { id: 'bm-1', name: 'devtools link', url: 'https://devtools.com', tags: ['devtools'] },
+        ],
+      },
+    ]
+    const ragResults: RagSearchResult[] = [makeRagResult('rag-x', 0.85)]
+
+    const specialInput: SearchInput = {
+      categories: specialCategories,
+      tags: ['devtools'],
+      actions: [
+        {
+          id: 'action-devtools',
+          label: 'devtools action',
+          keywords: ['devtools'],
+          execute: () => {},
+        },
+      ],
+      getUsageScore: () => 0,
+      ragResults,
+    }
+
+    const results = searchAll('devtools', specialInput)
+
+    // 각 kind 첫 등장 인덱스 확인
+    const firstIndexOf = (kind: string) => results.findIndex((r) => r.kind === kind)
+
+    const actionIdx = firstIndexOf('action')
+    const categoryIdx = firstIndexOf('category')
+    const tagIdx = firstIndexOf('tag')
+    const ragIdx = firstIndexOf('rag')
+    const bookmarkIdx = firstIndexOf('bookmark')
+
+    // 존재하는 그룹들의 순서 검증
+    if (actionIdx >= 0 && categoryIdx >= 0) expect(actionIdx).toBeLessThan(categoryIdx)
+    if (categoryIdx >= 0 && tagIdx >= 0) expect(categoryIdx).toBeLessThan(tagIdx)
+    if (tagIdx >= 0 && ragIdx >= 0) expect(tagIdx).toBeLessThan(ragIdx)
+    if (ragIdx >= 0 && bookmarkIdx >= 0) expect(ragIdx).toBeLessThan(bookmarkIdx)
+  })
+
+  // 테스트 4: 접두사 '>' (actions-only) 시 RAG 결과 무시
+  it('> 접두사(actions-only)로 검색하면 RAG 결과가 포함되지 않는다 (AC-029)', () => {
+    const ragResults: RagSearchResult[] = [makeRagResult('rag-y', 0.88)]
+    const inputWithRag: SearchInput = {
+      ...testInput,
+      ragResults,
+    }
+
+    const results = searchAll('>테마', inputWithRag)
+    const ragItems = results.filter((r) => r.kind === 'rag')
+    expect(ragItems.length).toBe(0)
+    expect(results.every((r) => r.kind === 'action')).toBe(true)
   })
 })

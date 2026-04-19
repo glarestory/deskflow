@@ -1,6 +1,6 @@
-// @MX:ANCHOR: [AUTO] searchAll — 북마크/카테고리/태그/액션 통합 검색 함수
+// @MX:ANCHOR: [AUTO] searchAll — 북마크/카테고리/태그/액션/RAG 통합 검색 함수
 // @MX:REASON: [AUTO] CommandPalette 컴포넌트에서 직접 호출되는 검색 진입점
-// @MX:SPEC: SPEC-UX-002
+// @MX:SPEC: SPEC-UX-002, SPEC-SEARCH-RAG-001
 import { fuzzyMatch } from './fuzzyMatch'
 import type { Category, Link } from '../types'
 
@@ -23,6 +23,18 @@ export interface PaletteAction {
   disabledReason?: string
 }
 
+/** RAG 검색 결과 (SPEC-SEARCH-RAG-001 REQ-012) */
+export interface RagSearchResult {
+  kind: 'rag'
+  linkId: string
+  categoryId: string
+  score: number
+  /** 렌더링에 필요한 링크 전체 객체 (호출자가 lookup 비용 없이 사용 가능) */
+  link: Link
+  /** fuzzy 결과와 일관성을 위해 빈 배열로 채움 (RAG는 범위 매칭 없음) */
+  matchedRanges: [number, number][]
+}
+
 /** 통합 검색 입력 */
 export interface SearchInput {
   categories: Category[]
@@ -30,6 +42,11 @@ export interface SearchInput {
   actions: PaletteAction[]
   /** 항목의 usage 점수 반환 함수 (type: 'bookmark'|'category'|'tag'|'action') */
   getUsageScore: (type: string, id: string) => number
+  /**
+   * 사전 계산된 RAG 결과 (ragStore.search()가 비동기 반환)
+   * 없거나 빈 배열이면 RAG 그룹 비활성
+   */
+  ragResults?: RagSearchResult[]
 }
 
 /** 북마크 검색 결과 */
@@ -67,7 +84,7 @@ export interface ActionResult {
 }
 
 /** 통합 검색 결과 유니온 타입 */
-export type SearchResult = BookmarkResult | CategoryResult | TagResult | ActionResult
+export type SearchResult = BookmarkResult | CategoryResult | TagResult | ActionResult | RagSearchResult
 
 // 그룹당 최대 결과 수 (SPEC REQ)
 const MAX_PER_GROUP = 5
@@ -305,13 +322,20 @@ export function searchAll(rawQuery: string, input: SearchInput): SearchResult[] 
       break
     }
     case 'all': {
+      // @MX:NOTE: [AUTO] SPEC-SEARCH-RAG-001 REQ-012 — RAG 결과 그룹 통합 (action < category < tag < RAG < bookmark)
       // 전체 그룹 검색 — 각 그룹 최대 5개씩, 총 20개
       const bookmarkResults = searchBookmarks(query, input.categories, input.getUsageScore)
       const categoryResults = searchCategories(query, input.categories, input.getUsageScore)
       const tagResults = searchTags(query, input.tags, tagCounts, input.getUsageScore)
       const actionResults = searchActions(query, input.actions, input.getUsageScore)
 
-      results.push(...bookmarkResults, ...categoryResults, ...tagResults, ...actionResults)
+      // RAG 결과: 쿼리 4자 이상이고 ragResults가 제공된 경우에만 삽입
+      // 순서: action → category → tag → RAG → bookmark (DEC-004)
+      const ragResults = (input.ragResults && query.trim().length >= 4)
+        ? input.ragResults.slice(0, MAX_PER_GROUP)
+        : []
+
+      results.push(...actionResults, ...categoryResults, ...tagResults, ...ragResults, ...bookmarkResults)
       break
     }
   }
