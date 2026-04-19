@@ -1,0 +1,119 @@
+/* CapsuleSwitcher — DEC-004: 640px 기준 드롭다운 ↔ 바텀시트 자동 전환 */
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trigger:hover {
+  background: var(--link-hover);
+}
+
+/* ─── 드롭다운 (데스크톱 >= 641px) ─────────────────────────── */
+.panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 220px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px var(--shadow);
+  z-index: 1000;
+  padding: 8px 0;
+  overflow: hidden;
+}
+
+/* ─── 바텀시트 (모바일 <= 640px) ─────────────────────────── */
+@media (max-width: 640px) {
+  .panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    min-width: unset;
+    width: 100vw;
+    border-radius: 20px 20px 0 0;
+    max-height: 60vh;
+    overflow-y: auto;
+    animation: slideUp 200ms ease-out;
+  }
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+}
+
+.section {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.section:last-child {
+  border-bottom: none;
+}
+
+.sectionLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 6px 16px 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+}
+
+.item:hover {
+  background: var(--link-hover);
+}
+
+.itemActive {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.itemDestructive {
+  color: #e74c3c;
+}
+
+.accentItem {
+  color: var(--accent);
+}

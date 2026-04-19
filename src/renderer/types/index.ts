@@ -52,4 +52,6 @@ export interface ThemeTokens {
   '--link-hover': string
   '--accent': string
   '--shadow': string
+  // SPEC-CAPSULE-001: 캡슐 색상 강조 토큰 (DEC-002)
+  '--capsule-accent': string
 }
