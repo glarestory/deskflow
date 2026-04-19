@@ -1,6 +1,7 @@
-// @MX:SPEC: SPEC-BOOKMARK-003
+// @MX:SPEC: SPEC-BOOKMARK-003, SPEC-SEARCH-RAG-001
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Bookmark } from '../types'
+import type { BookmarkEmbedding } from '../types/embedding'
 
 // firestoreStorage mock
 vi.mock('./firestoreStorage', () => ({
@@ -8,6 +9,22 @@ vi.mock('./firestoreStorage', () => ({
     get: vi.fn().mockResolvedValue(null),
     set: vi.fn().mockResolvedValue(undefined),
   },
+}))
+
+// firestoreEmbeddingStorage mock
+const mockFsEmbeddingUpsert = vi.fn().mockResolvedValue(undefined)
+vi.mock('./firestoreEmbeddingStorage', () => ({
+  firestoreEmbeddingStorage: {
+    getAll: vi.fn().mockResolvedValue([]),
+    upsert: (...args: unknown[]) => mockFsEmbeddingUpsert(...args),
+    remove: vi.fn().mockResolvedValue(undefined),
+    removeAll: vi.fn().mockResolvedValue(undefined),
+  },
+}))
+
+// capsuleMigration mock
+vi.mock('./capsuleMigration', () => ({
+  migrateCapsulesToFirestore: vi.fn().mockResolvedValue(undefined),
 }))
 
 describe('backfillMissingTags', () => {
@@ -126,5 +143,45 @@ describe('backfillMissingTags', () => {
   it('빈 북마크 배열을 처리해야 한다', async () => {
     const { backfillMissingTags } = await import('./migration')
     expect(backfillMissingTags([])).toEqual([])
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('migrateLocalToFirestore — rag-embeddings (SPEC-SEARCH-RAG-001 AC-018)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.resetModules()
+    mockFsEmbeddingUpsert.mockResolvedValue(undefined)
+    // localStorage 초기화
+    localStorage.clear()
+  })
+
+  // rag-embeddings가 있으면 firestoreEmbeddingStorage.upsert를 각 항목마다 호출한다
+  it('rag-embeddings 로컬 데이터가 있으면 firestoreEmbeddingStorage.upsert를 항목별로 호출한다', async () => {
+    const e1: BookmarkEmbedding = {
+      linkId: 'link-1', categoryId: 'cat-1', contentHash: 'h1',
+      embedding: [0.1], dimension: 1, model: 'nomic-embed-text', embeddedAt: '2026-04-19T00:00:00.000Z',
+    }
+    const e2: BookmarkEmbedding = {
+      linkId: 'link-2', categoryId: 'cat-1', contentHash: 'h2',
+      embedding: [0.2], dimension: 1, model: 'nomic-embed-text', embeddedAt: '2026-04-19T00:00:00.000Z',
+    }
+    localStorage.setItem('rag-embeddings', JSON.stringify([e1, e2]))
+
+    const { migrateLocalToFirestore } = await import('./migration')
+    await migrateLocalToFirestore('user-123')
+
+    expect(mockFsEmbeddingUpsert).toHaveBeenCalledTimes(2)
+    expect(mockFsEmbeddingUpsert).toHaveBeenCalledWith('user-123', e1)
+    expect(mockFsEmbeddingUpsert).toHaveBeenCalledWith('user-123', e2)
+  })
+
+  // rag-embeddings가 없으면 upsert가 호출되지 않는다
+  it('rag-embeddings 로컬 데이터가 없으면 firestoreEmbeddingStorage.upsert를 호출하지 않는다', async () => {
+    // localStorage에 rag-embeddings 없음
+    const { migrateLocalToFirestore } = await import('./migration')
+    await migrateLocalToFirestore('user-456')
+
+    expect(mockFsEmbeddingUpsert).not.toHaveBeenCalled()
   })
 })

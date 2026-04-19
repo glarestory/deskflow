@@ -1,10 +1,12 @@
 // @MX:NOTE: [AUTO] migration — 최초 로그인 시 localStorage 데이터를 Firestore로 마이그레이션
 // @MX:NOTE: [AUTO] SPEC-BOOKMARK-003: backfillMissingTags — tags 없는 기존 링크에 자동 태그 채우기
 // @MX:NOTE: [AUTO] SPEC-UX-003: backfillMissingCreatedAt — createdAt 없는 기존 링크에 현재 시각 부여
-// @MX:SPEC: SPEC-AUTH-001, SPEC-BOOKMARK-003, SPEC-UX-003, SPEC-CAPSULE-001
+// @MX:SPEC: SPEC-AUTH-001, SPEC-BOOKMARK-003, SPEC-UX-003, SPEC-CAPSULE-001, SPEC-SEARCH-RAG-001
 
 import { firestoreStorage } from './firestoreStorage'
+import { firestoreEmbeddingStorage } from './firestoreEmbeddingStorage'
 import type { Bookmark } from '../types'
+import type { BookmarkEmbedding } from '../types/embedding'
 import { extractTags } from './extractTags'
 import { migrateCapsulesToFirestore } from './capsuleMigration'
 
@@ -26,6 +28,19 @@ export const migrateLocalToFirestore = async (uid: string): Promise<void> => {
 
   // REQ-004: 캡슐 데이터도 함께 마이그레이션
   await migrateCapsulesToFirestore(uid)
+
+  // @MX:NOTE: [AUTO] SPEC-SEARCH-RAG-001 REQ-008 - embedding 은 서브컬렉션으로 개별 업로드
+  const rawEmbeddings = localStorage.getItem('rag-embeddings')
+  if (rawEmbeddings !== null) {
+    try {
+      const embeddings = JSON.parse(rawEmbeddings) as BookmarkEmbedding[]
+      for (const e of embeddings) {
+        await firestoreEmbeddingStorage.upsert(uid, e)
+      }
+    } catch {
+      console.warn('[migration] rag-embeddings 파싱 실패, 임베딩 마이그레이션 스킵')
+    }
+  }
 
   // 마이그레이션 완료 플래그 저장
   localStorage.setItem(MIGRATION_FLAG, uid)
