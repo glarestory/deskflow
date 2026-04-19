@@ -9,6 +9,8 @@ import { useTagStore } from '../../stores/tagStore'
 const NAME_MAX = 60
 // 설명 최대 길이 (AC-015)
 const DESC_MAX = 200
+// 신규 캡슐 기본 색상 (DEC-002 OKLCH — 보라 계열, 테마별 lightness는 colorAdjust로 자동 보정)
+const DEFAULT_CAPSULE_COLOR = 'oklch(0.7 0.15 270)'
 
 /** CapsuleEditModal props */
 interface CapsuleEditModalProps {
@@ -40,7 +42,7 @@ export default function CapsuleEditModal({
   // 폼 상태
   const [name, setName] = useState(capsule?.name ?? '')
   const [emoji, setEmoji] = useState(capsule?.emoji ?? '📦')
-  const [color, setColor] = useState(capsule?.color ?? '')
+  const [color, setColor] = useState(capsule?.color ?? DEFAULT_CAPSULE_COLOR)
   const [description, setDescription] = useState(capsule?.description ?? '')
   const [tags, setTags] = useState<string[]>(capsule?.tags ?? [])
   const [pomodoroPreset, setPomodoroPreset] = useState<PomodoroPreset | null>(
@@ -206,30 +208,46 @@ export default function CapsuleEditModal({
             </div>
           </div>
 
-          {/* 색상 (OKLCH, DEC-002) */}
+          {/* 색상 (OKLCH, DEC-002) + 미리보기 swatch */}
           <div style={{ marginBottom: 14 }}>
             <label
               style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}
             >
               색상 (OKLCH, 예: oklch(0.7 0.15 270))
             </label>
-            <input
-              data-testid="capsule-color-input"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              placeholder="oklch(0.7 0.15 270)"
-              style={{
-                width: '100%',
-                padding: '8px 14px',
-                borderRadius: 10,
-                border: '1px solid var(--border)',
-                background: 'var(--link-bg)',
-                color: 'var(--text-primary)',
-                fontSize: 13,
-                outline: 'none',
-                boxSizing: 'border-box',
-              }}
-            />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span
+                data-testid="capsule-color-swatch"
+                aria-label="색상 미리보기"
+                style={{
+                  display: 'inline-block',
+                  width: 24,
+                  height: 24,
+                  borderRadius: '50%',
+                  // 입력된 OKLCH를 그대로 배경색으로 반영 (빈 값일 땐 투명)
+                  background: color.trim() || 'transparent',
+                  border: '1px solid var(--border)',
+                  flexShrink: 0,
+                }}
+              />
+              <input
+                data-testid="capsule-color-input"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                placeholder="oklch(0.7 0.15 270)"
+                style={{
+                  flex: 1,
+                  padding: '8px 14px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--link-bg)',
+                  color: 'var(--text-primary)',
+                  fontSize: 13,
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
           </div>
 
           {/* 설명 */}

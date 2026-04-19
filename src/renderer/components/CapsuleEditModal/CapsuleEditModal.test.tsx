@@ -69,6 +69,26 @@ describe('CapsuleEditModal', () => {
       render(<CapsuleEditModal capsule={null} onSave={mockOnSave} onClose={mockOnClose} />)
       expect(screen.queryByText('삭제')).not.toBeInTheDocument()
     })
+
+    // @MX:NOTE: [AUTO] UX 개선: 신규 캡슐 기본 색상 자동 설정 (oklch(0.7 0.15 270))
+    it('신규 생성 시 색상 필드에 OKLCH 기본값이 미리 채워진다', () => {
+      render(<CapsuleEditModal capsule={null} onSave={mockOnSave} onClose={mockOnClose} />)
+      const colorInput = screen.getByTestId('capsule-color-input') as HTMLInputElement
+      expect(colorInput.value).toBe('oklch(0.7 0.15 270)')
+    })
+
+    it('색상 미리보기 swatch가 렌더링된다', () => {
+      render(<CapsuleEditModal capsule={null} onSave={mockOnSave} onClose={mockOnClose} />)
+      expect(screen.getByTestId('capsule-color-swatch')).toBeInTheDocument()
+    })
+
+    it('색상 입력 변경 시 swatch의 배경색이 업데이트된다', () => {
+      render(<CapsuleEditModal capsule={null} onSave={mockOnSave} onClose={mockOnClose} />)
+      const colorInput = screen.getByTestId('capsule-color-input')
+      fireEvent.change(colorInput, { target: { value: 'oklch(0.6 0.2 30)' } })
+      const swatch = screen.getByTestId('capsule-color-swatch')
+      expect(swatch).toHaveStyle({ background: 'oklch(0.6 0.2 30)' })
+    })
   })
 
   describe('편집 모드 (기존 캡슐 전달)', () => {
