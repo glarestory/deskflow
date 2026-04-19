@@ -1,9 +1,10 @@
 // @MX:NOTE: [AUTO] pomodoroStore — 포모도로 타이머 상태 관리 (집중/휴식/긴 휴식 사이클)
-// @MX:SPEC: SPEC-WIDGET-004
+// @MX:SPEC: SPEC-WIDGET-004, SPEC-CAPSULE-001
 // @MX:ANCHOR: [AUTO] usePomodoroStore — tick, start, pause, reset 진입점
 // @MX:REASON: [AUTO] PomodoroWidget과 테스트에서 호출됨 (fan_in >= 3)
 import { create } from 'zustand'
 import { storage } from '../lib/storage'
+import { useCapsuleStore } from './capsuleStore'
 
 // 포모도로 모드 타입
 export type PomodoroMode = 'idle' | 'focus' | 'break' | 'longBreak'
@@ -105,6 +106,17 @@ export const usePomodoroStore = create<PomodoroState>((set, get) => ({
         // 집중 세션 완료
         const newCompleted = state.completed + 1
         clearInterval(state.intervalId!)
+
+        // REQ-020: 활성 캡슐 상태에서 포모도로 focus 세션 완료 시 focusMinutes 메트릭 증가
+        // @MX:NOTE: [AUTO] capsuleStore.incrementMetric 훅 — SPEC-CAPSULE-001 REQ-020
+        const capsuleState = useCapsuleStore.getState()
+        if (capsuleState.activeCapsuleId !== null) {
+          capsuleState.incrementMetric(
+            capsuleState.activeCapsuleId,
+            'focusMinutes',
+            state.settings.focusMinutes,
+          )
+        }
 
         sendNotification('집중 시간 완료!', '휴식을 취하세요')
 

@@ -1,10 +1,11 @@
 // @MX:NOTE: [AUTO] todoStore — 할 일 목록 CRUD + 반복 일정 상태 관리
-// @MX:SPEC: SPEC-TODO-002
+// @MX:SPEC: SPEC-TODO-002, SPEC-CAPSULE-001
 // @MX:ANCHOR: [AUTO] checkAndRegenerateRecurring — 앱 시작 시 반복 할 일 재생성 진입점
 // @MX:REASON: TodoWidget.tsx 및 App.tsx에서 호출됨 (fan_in >= 3)
 import { create } from 'zustand'
 import type { Todo, Recurrence } from '../types'
 import { storage } from '../lib/storage'
+import { useCapsuleStore } from './capsuleStore'
 
 const uid = () => Math.random().toString(36).slice(2, 9)
 
@@ -94,12 +95,19 @@ export const useTodoStore = create<TodoState>((set, get) => ({
   },
 
   addTodo: (text) => {
+    const newId = uid()
     set((state) => ({
-      todos: [...state.todos, { id: uid(), text, done: false }],
+      todos: [...state.todos, { id: newId, text, done: false }],
     }))
     const { loaded, todos } = get()
     if (loaded) {
       void storage.set('hub-todos', JSON.stringify(todos))
+    }
+    // REQ-011: autoAddToActive=true이고 활성 캡슐이 있으면 Todo id를 캡슐에 자동 추가
+    // @MX:NOTE: [AUTO] capsuleStore.addTodoToCapsule 훅 — SPEC-CAPSULE-001 REQ-011
+    const capsuleState = useCapsuleStore.getState()
+    if (capsuleState.autoAddToActive && capsuleState.activeCapsuleId !== null) {
+      capsuleState.addTodoToCapsule(capsuleState.activeCapsuleId, newId)
     }
   },
 
@@ -125,12 +133,24 @@ export const useTodoStore = create<TodoState>((set, get) => ({
   },
 
   toggleTodo: (id) => {
+    // done → undone 전환인지 확인 (completedTodos 메트릭 증가에 필요)
+    const todo = get().todos.find((t) => t.id === id)
+    const wasNotDone = todo !== undefined && !todo.done
+
     set((state) => ({
       todos: state.todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
     }))
     const { loaded, todos } = get()
     if (loaded) {
       void storage.set('hub-todos', JSON.stringify(todos))
+    }
+    // REQ-020: 활성 캡슐 상태에서 Todo 완료 시 completedTodos 메트릭 증가
+    // @MX:NOTE: [AUTO] capsuleStore.incrementMetric 훅 — SPEC-CAPSULE-001 REQ-020
+    if (wasNotDone) {
+      const capsuleState = useCapsuleStore.getState()
+      if (capsuleState.activeCapsuleId !== null) {
+        capsuleState.incrementMetric(capsuleState.activeCapsuleId, 'completedTodos', 1)
+      }
     }
   },
 
@@ -142,6 +162,9 @@ export const useTodoStore = create<TodoState>((set, get) => ({
     if (loaded) {
       void storage.set('hub-todos', JSON.stringify(todos))
     }
+    // REQ-017: 고아 참조 제거 — 삭제된 Todo id를 모든 캡슐에서 제거
+    // @MX:NOTE: [AUTO] capsuleStore.purgeOrphan 훅 — SPEC-CAPSULE-001 REQ-017
+    useCapsuleStore.getState().purgeOrphan('todo', id)
   },
 
   deleteTodoSeries: (seriesId) => {

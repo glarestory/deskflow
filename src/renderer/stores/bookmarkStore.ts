@@ -1,12 +1,13 @@
 // @MX:ANCHOR: [AUTO] bookmarkStore — 북마크 CRUD 상태 관리 중심 진입점
 // @MX:REASON: [AUTO] Clock, TodoWidget, NotesWidget, BookmarkCard, EditModal, App 등 다수 컴포넌트가 의존
-// @MX:SPEC: SPEC-UI-001, SPEC-BOOKMARK-002
+// @MX:SPEC: SPEC-UI-001, SPEC-BOOKMARK-002, SPEC-CAPSULE-001
 import { create } from 'zustand'
 import type { Bookmark, Link } from '../types'
 import { storage } from '../lib/storage'
 import { generateNetscapeHTML, downloadBookmarks, getExportFilename } from '../lib/bookmarkExporter'
 import { findDuplicates } from '../lib/bookmarkDedup'
 import { extractTags } from '../lib/extractTags'
+import { useCapsuleStore } from './capsuleStore'
 
 /**
  * 링크에 자동 태그를 병합한다.
@@ -108,6 +109,17 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
     if (loaded) {
       void storage.set('hub-bookmarks', JSON.stringify(bookmarks))
     }
+    // REQ-011: autoAddToActive=true이고 활성 캡슐이 있으면 북마크 카테고리 id를 캡슐에 자동 추가
+    // @MX:NOTE: [AUTO] capsuleStore.addBookmarkToCapsule 훅 — SPEC-CAPSULE-001 REQ-011
+    const capsuleState = useCapsuleStore.getState()
+    if (capsuleState.autoAddToActive && capsuleState.activeCapsuleId !== null) {
+      // 북마크 카테고리 id를 캡슐에 추가 (중복 무시)
+      try {
+        capsuleState.addBookmarkToCapsule(capsuleState.activeCapsuleId, bookmark.id)
+      } catch {
+        // DEC-003: > 1000 초과 시 에러 — 무시하고 진행
+      }
+    }
   },
 
   updateBookmark: (updated) => {
@@ -128,6 +140,9 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
     if (loaded) {
       void storage.set('hub-bookmarks', JSON.stringify(bookmarks))
     }
+    // REQ-017: 고아 참조 제거 — 삭제된 북마크 id를 모든 캡슐에서 제거
+    // @MX:NOTE: [AUTO] capsuleStore.purgeOrphan 훅 — SPEC-CAPSULE-001 REQ-017
+    useCapsuleStore.getState().purgeOrphan('bookmark', id)
   },
 
   addLink: (categoryId, link) => {

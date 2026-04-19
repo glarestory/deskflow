@@ -1,11 +1,12 @@
 // @MX:NOTE: [AUTO] migration — 최초 로그인 시 localStorage 데이터를 Firestore로 마이그레이션
 // @MX:NOTE: [AUTO] SPEC-BOOKMARK-003: backfillMissingTags — tags 없는 기존 링크에 자동 태그 채우기
 // @MX:NOTE: [AUTO] SPEC-UX-003: backfillMissingCreatedAt — createdAt 없는 기존 링크에 현재 시각 부여
-// @MX:SPEC: SPEC-AUTH-001, SPEC-BOOKMARK-003, SPEC-UX-003
+// @MX:SPEC: SPEC-AUTH-001, SPEC-BOOKMARK-003, SPEC-UX-003, SPEC-CAPSULE-001
 
 import { firestoreStorage } from './firestoreStorage'
 import type { Bookmark } from '../types'
 import { extractTags } from './extractTags'
+import { migrateCapsulesToFirestore } from './capsuleMigration'
 
 const MIGRATION_FLAG = 'hub-migrated'
 const DATA_KEYS = ['hub-bookmarks', 'hub-todos', 'hub-theme', 'hub-notes']
@@ -22,6 +23,9 @@ export const migrateLocalToFirestore = async (uid: string): Promise<void> => {
       await firestoreStorage.set(uid, key, localValue)
     }
   }
+
+  // REQ-004: 캡슐 데이터도 함께 마이그레이션
+  await migrateCapsulesToFirestore(uid)
 
   // 마이그레이션 완료 플래그 저장
   localStorage.setItem(MIGRATION_FLAG, uid)
