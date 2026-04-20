@@ -272,6 +272,126 @@ body {
   color: var(--text-muted);
 }
 
+/* HOTFIX SPEC-SEARCH-RAG-001: ResultItem BEM 클래스 스타일 */
+/* ResultItem.tsx 는 result-item / result-item--selected / result-item--disabled 를 사용하나
+   기존 CSS 는 command-palette-item 만 정의되어 있어 선택 하이라이트가 나오지 않았음. */
+.result-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: background 100ms ease;
+  list-style: none;
+}
+
+.result-item:hover,
+.result-item--selected {
+  background: var(--link-hover);
+}
+
+.result-item--selected {
+  /* 키보드 네비게이션 포커스 표시를 조금 더 강조 */
+  box-shadow: inset 3px 0 0 var(--accent, #3b82f6);
+}
+
+.result-item--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.result-item__content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.result-item__icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.result-item__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.result-item__label {
+  font-size: 14px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-item__subtext {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-item__badge,
+.result-item__count {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.result-item-highlight {
+  background: rgba(255, 220, 0, 0.3);
+  font-weight: 600;
+  border-radius: 2px;
+}
+
+/* RAG 결과 그룹 헤더 */
+.command-palette-group-header {
+  padding: 6px 20px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  list-style: none;
+}
+
+/* RAG 배지 컨테이너 */
+.command-palette-rag-badge {
+  border-bottom: 1px solid var(--border);
+}
+
+/* 푸터 */
+.command-palette-footer {
+  display: flex;
+  gap: 12px;
+  padding: 8px 20px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.command-palette-empty-action {
+  margin-top: 12px;
+  padding: 6px 12px;
+  background: var(--accent, #3b82f6);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
 /* NFR-003: 애니메이션 keyframes */
 @keyframes palette-fade-in {
   from {

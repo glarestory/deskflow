@@ -478,12 +478,6 @@ export default function CommandPalette({
       const nav = navStateRef.current
       const isMod = e.metaKey || e.ctrlKey
 
-      // @MX:TODO: [AUTO] HOTFIX 진단 로그 — 동작 확인 후 제거 (build 5a6ecc8+)
-      if (e.key.startsWith('Arrow') || e.key === 'Enter') {
-        // eslint-disable-next-line no-console
-        console.log('[Palette]', e.key, 'idx=', nav.selectedIndex, 'len=', nav.length)
-      }
-
       // 아래 이동: ArrowDown 또는 Ctrl/Cmd+J·N
       if (
         e.key === 'ArrowDown' ||
