@@ -510,8 +510,10 @@ export default function CommandPalette({
       }
     }
 
-    document.addEventListener('keydown', handleDocKeyDown)
-    return () => document.removeEventListener('keydown', handleDocKeyDown)
+    // capture phase: 다른 컴포넌트의 stopPropagation() 이전에 처리
+    document.addEventListener('keydown', handleDocKeyDown, { capture: true })
+    return () =>
+      document.removeEventListener('keydown', handleDocKeyDown, { capture: true })
   }, [isOpen])
 
   // 오버레이 클릭 핸들러
