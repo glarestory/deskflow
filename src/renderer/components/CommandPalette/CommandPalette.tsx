@@ -432,56 +432,87 @@ export default function CommandPalette({
         selected.action.execute()
         // execute 내에서 handleClose 호출됨
       } else if (selected.kind === 'rag') {
-        // RAG 결과: 북마크와 동일하게 새 탭으로 열기
-        window.open(selected.link.url, '_blank', 'noopener')
+        // @MX:NOTE: [AUTO] HOTFIX — RAG 결과 열기 경로 통일
+        // Electron에서 window.open은 새 BrowserWindow 생성 (의도 외 동작)
+        // bookmark와 동일한 onSelectBookmark 콜백 사용 (Electron shell.openExternal 호환)
+        recordUsage('bookmark', selected.link.id)
+        if (modifiers.alt && onEditBookmark !== undefined) {
+          onEditBookmark(selected.link.id)
+        } else if (onSelectBookmark !== undefined) {
+          onSelectBookmark(selected.link.id, selected.categoryId)
+        } else {
+          // 콜백 없으면 fallback
+          window.open(selected.link.url, '_blank', 'noopener')
+        }
         handleClose()
       }
     },
     [searchResults, selectedIndex, recordUsage, onEditBookmark, onSelectBookmark, onSelectCategory, onSelectTag, handleClose],
   )
 
-  // @MX:NOTE: [AUTO] HOTFIX SPEC-SEARCH-RAG-001 — Windows 키보드 네비게이션 수정
-  // @MX:REASON: [AUTO] 기존 <input> 레벨 onKeyDown은 Windows IME 조합 중 또는 일부 환경에서
-  // ArrowUp/Down 이벤트가 가로채져 동작 안 함. document 레벨 리스너로 이전하여 안정적으로 동작.
-  // isComposing 체크로 IME 조합 중 navigation 억제.
+  // @MX:NOTE: [AUTO] HOTFIX SPEC-SEARCH-RAG-001 — Palette 키보드 네비게이션 (cross-platform)
+  // @MX:REASON: [AUTO] document 레벨 리스너 + useRef로 stale closure/재바인딩 churn 방지
+  // Windows IME 조합(isComposing) 억제 + Ctrl/Cmd+J·K 대체 네비게이션 지원
+  const navStateRef = useRef({
+    selectedIndex,
+    length: searchResults.length,
+    handleClose,
+    setSelectedIndex,
+    executeSelected,
+  })
+  navStateRef.current = {
+    selectedIndex,
+    length: searchResults.length,
+    handleClose,
+    setSelectedIndex,
+    executeSelected,
+  }
+
   useEffect(() => {
     if (!isOpen) return
 
     const handleDocKeyDown = (e: KeyboardEvent): void => {
-      // IME 조합 중 (한글/일본어 등) navigation 키 무시 — 모던 Chromium/Electron 기준
+      // IME 조합 중 (한글/일본어 등) navigation 무시 — 모던 Chromium/Electron 기준
       if (e.isComposing) return
 
-      switch (e.key) {
-        case 'Escape':
-          e.preventDefault()
-          handleClose()
-          break
-        case 'ArrowDown':
-          e.preventDefault()
-          setSelectedIndex(Math.min(selectedIndex + 1, searchResults.length - 1))
-          break
-        case 'ArrowUp':
-          e.preventDefault()
-          setSelectedIndex(Math.max(selectedIndex - 1, 0))
-          break
-        case 'Enter': {
-          // Enter는 input에 포커스가 있을 때만 처리 (다른 곳 클릭 시 의도 외 동작 방지)
-          const activeEl = document.activeElement
-          if (activeEl !== inputRef.current) return
-          e.preventDefault()
-          const isCtrl = e.metaKey || e.ctrlKey
-          const isAlt = e.altKey
-          executeSelected({ ctrl: isCtrl, alt: isAlt })
-          break
-        }
-        default:
-          break
+      const nav = navStateRef.current
+      const isMod = e.metaKey || e.ctrlKey
+
+      // 아래 이동: ArrowDown 또는 Ctrl/Cmd+J·N
+      if (
+        e.key === 'ArrowDown' ||
+        (isMod && (e.key === 'j' || e.key === 'J' || e.key === 'n' || e.key === 'N'))
+      ) {
+        e.preventDefault()
+        nav.setSelectedIndex(Math.min(nav.selectedIndex + 1, nav.length - 1))
+        return
+      }
+
+      // 위 이동: ArrowUp 또는 Ctrl/Cmd+K·P
+      if (
+        e.key === 'ArrowUp' ||
+        (isMod && (e.key === 'p' || e.key === 'P'))
+      ) {
+        e.preventDefault()
+        nav.setSelectedIndex(Math.max(nav.selectedIndex - 1, 0))
+        return
+      }
+
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        nav.handleClose()
+        return
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        nav.executeSelected({ ctrl: isMod, alt: e.altKey })
       }
     }
 
     document.addEventListener('keydown', handleDocKeyDown)
     return () => document.removeEventListener('keydown', handleDocKeyDown)
-  }, [isOpen, selectedIndex, searchResults.length, handleClose, setSelectedIndex, executeSelected])
+  }, [isOpen])
 
   // 오버레이 클릭 핸들러
   const handleOverlayMouseDown = (e: React.MouseEvent<HTMLDivElement>): void => {
