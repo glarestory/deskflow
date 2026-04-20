@@ -128,9 +128,30 @@ export default function App(): JSX.Element {
           useEmbeddingStore.getState().enqueueIndex(missingLinkIds)
 
           // 큐가 빌 때까지 배치 실행 (메인 스레드 양보 포함)
+          // @MX:WARN: [AUTO] circuit breaker — 연속 실패 시 무한 루프 방지 (HOTFIX SPEC-SEARCH-RAG-001)
+          // @MX:REASON: [AUTO] runIndexBatch는 실패 linkId를 큐에 재큐잉하므로 Ollama 장애 시 무한 반복
           const drainQueue = async (): Promise<void> => {
+            let consecutiveNoProgress = 0
+            const MAX_NO_PROGRESS = 2
             while (useEmbeddingStore.getState().indexingQueue.length > 0) {
+              const before = useEmbeddingStore.getState().indexingQueue.length
               await useEmbeddingStore.getState().runIndexBatch()
+              const after = useEmbeddingStore.getState().indexingQueue.length
+
+              if (after >= before) {
+                consecutiveNoProgress++
+                if (consecutiveNoProgress >= MAX_NO_PROGRESS) {
+                  // 연속 실패: Ollama 장애 또는 지속 오류로 판단하고 중단
+                  // 다음 앱 실행 시 자동 재시도 (AC-011 정신 유지)
+                  console.warn(
+                    '[App] RAG 배치 중단: 연속 실패 감지. 다음 실행 시 재시도.',
+                  )
+                  break
+                }
+              } else {
+                consecutiveNoProgress = 0
+              }
+
               // 메인 스레드에 양보
               await new Promise<void>((resolve) => { setTimeout(resolve, 50) })
             }

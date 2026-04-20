@@ -85,7 +85,13 @@ export async function listModels(): Promise<string[]> {
 
 /**
  * 텍스트를 Ollama 임베딩 벡터로 변환한다.
- * POST /api/embeddings에 5초 타임아웃으로 요청한다.
+ *
+ * 호환성 전략 (HOTFIX SPEC-SEARCH-RAG-001):
+ * 1) 먼저 legacy `/api/embeddings` 엔드포인트 시도 (요청: `{ prompt }`, 응답: `{ embedding }`)
+ * 2) 404/405 반환 시 새 `/api/embed` 엔드포인트 폴백 (요청: `{ input }`, 응답: `{ embeddings: [[...]] }`)
+ * 3) Ollama 0.5+ 또는 경로 필터링 환경에서도 동작 보장
+ *
+ * 5초 타임아웃 적용. 응답 shape 둘 다 지원.
  *
  * @param text  - 임베딩할 텍스트
  * @param model - 사용할 모델 (기본값: 'nomic-embed-text')
@@ -100,14 +106,27 @@ export async function embed(
   const timerId = setTimeout(() => controller.abort(), 5000)
 
   let res: Response
+  let usedNewEndpoint = false
 
   try {
+    // 1차 시도: legacy 엔드포인트 (`/api/embeddings` + `prompt`)
     res = await fetch(`${OLLAMA_BASE_URL}/api/embeddings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model, prompt: text }),
       signal: controller.signal,
     })
+
+    // 404 / 405: legacy 미지원 환경(Ollama 0.5+ 또는 경로 필터링) → 신 엔드포인트 폴백
+    if (res.status === 404 || res.status === 405) {
+      res = await fetch(`${OLLAMA_BASE_URL}/api/embed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, input: text }),
+        signal: controller.signal,
+      })
+      usedNewEndpoint = true
+    }
   } catch (err) {
     const isAbort =
       err instanceof DOMException && err.name === 'AbortError'
@@ -127,14 +146,24 @@ export async function embed(
     )
   }
 
-  const data = (await res.json()) as { embedding?: number[] }
+  const data = (await res.json()) as {
+    embedding?: number[]
+    embeddings?: number[][]
+  }
 
-  if (!Array.isArray(data.embedding)) {
+  // 응답 shape 호환: legacy `embedding` 또는 신규 `embeddings[0]` 모두 수용
+  const vector = Array.isArray(data.embedding)
+    ? data.embedding
+    : Array.isArray(data.embeddings) && Array.isArray(data.embeddings[0])
+      ? data.embeddings[0]
+      : null
+
+  if (vector === null) {
     throw new OllamaError(
-      '응답에 embedding 필드가 없음',
+      `응답에 embedding 필드가 없음 (endpoint=${usedNewEndpoint ? '/api/embed' : '/api/embeddings'})`,
       'PARSE_ERROR',
     )
   }
 
-  return data.embedding
+  return vector
 }

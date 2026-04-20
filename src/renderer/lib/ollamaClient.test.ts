@@ -143,18 +143,19 @@ describe('ollamaClient', () => {
       expect(body.model).toBe('nomic-embed-text')
     })
 
-    it('404 응답 (모델 없음)이면 OllamaError를 throw한다', async () => {
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-        new Response('model not found', { status: 404 }),
-      )
+    it('양 엔드포인트 404 (모델 없음)이면 OllamaError를 throw한다', async () => {
+      // HOTFIX: legacy 404 → new endpoint 폴백. 둘 다 404면 최종 HTTP_ERROR.
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(new Response('not found', { status: 404 }))
+        .mockResolvedValueOnce(new Response('model not found', { status: 404 }))
       const { embed, OllamaError } = await import('./ollamaClient')
       await expect(embed('test')).rejects.toBeInstanceOf(OllamaError)
     })
 
-    it('404 응답이면 OllamaError.code가 HTTP_ERROR이다', async () => {
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-        new Response('model not found', { status: 404 }),
-      )
+    it('양 엔드포인트 404이면 OllamaError.code가 HTTP_ERROR이다', async () => {
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(new Response('not found', { status: 404 }))
+        .mockResolvedValueOnce(new Response('model not found', { status: 404 }))
       const { embed, OllamaError } = await import('./ollamaClient')
       try {
         await embed('test')
@@ -163,6 +164,27 @@ describe('ollamaClient', () => {
         expect(err).toBeInstanceOf(OllamaError)
         expect((err as InstanceType<typeof OllamaError>).code).toBe('HTTP_ERROR')
       }
+    })
+
+    it('legacy 404 시 new 엔드포인트로 폴백하여 embeddings[0] 배열을 반환한다', async () => {
+      // HOTFIX 핵심 시나리오: Ollama 0.5+ 또는 경로 필터링 환경
+      const embedding = [0.1, 0.2, 0.3]
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(new Response('', { status: 404 }))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ embeddings: [embedding] }), { status: 200 }),
+        )
+      const { embed } = await import('./ollamaClient')
+      const result = await embed('fallback test')
+      expect(result).toEqual(embedding)
+
+      const calls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls
+      expect(calls[0][0]).toContain('/api/embeddings')
+      expect(calls[1][0]).toContain('/api/embed')
+      expect(JSON.parse(calls[1][1].body as string)).toEqual({
+        model: 'nomic-embed-text',
+        input: 'fallback test',
+      })
     })
 
     it('5초 타임아웃 시 OllamaError를 throw하고 code가 TIMEOUT이다', async () => {
