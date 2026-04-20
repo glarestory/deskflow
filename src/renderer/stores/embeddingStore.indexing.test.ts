@@ -128,8 +128,11 @@ describe('embeddingStore — Phase 3: enqueueIndex', () => {
     expect(indexingQueue).toHaveLength(2)
   })
 
-  // 테스트 3: 이미 임베딩된 linkId 스킵
-  it('enqueueIndex: 이미 embeddings Map에 있는 linkId는 큐에 추가하지 않는다', async () => {
+  // 테스트 3: 이미 임베딩된 linkId 도 큐에 추가됨 (rename 재인덱싱 허용)
+  // HOTFIX (SPEC-SEARCH-RAG-001 T-004): 과거에는 embeddings Map 존재 시 큐에서 제외했으나,
+  // rename 시 기존 linkId 가 재큐잉되어야 contentHash 비교가 의미 있음. runIndexBatch 내부
+  // hash 비교가 실제 변경 없음을 감지하여 embed 호출만 스킵한다.
+  it('enqueueIndex: 이미 embeddings Map에 있는 linkId 도 큐에 추가된다 (contentHash 재비교)', async () => {
     const store = await freshStore()
     store.setState({
       indexingQueue: [],
@@ -139,9 +142,9 @@ describe('embeddingStore — Phase 3: enqueueIndex', () => {
     store.getState().enqueueIndex(['link-1', 'link-2'])
 
     const { indexingQueue } = store.getState()
-    expect(indexingQueue).not.toContain('link-1')
+    expect(indexingQueue).toContain('link-1')
     expect(indexingQueue).toContain('link-2')
-    expect(indexingQueue).toHaveLength(1)
+    expect(indexingQueue).toHaveLength(2)
   })
 })
 

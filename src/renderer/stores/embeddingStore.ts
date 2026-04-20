@@ -50,6 +50,42 @@ export interface EmbeddingState {
 
 const getUid = (): string | null => useAuthStore.getState().user?.uid ?? null
 
+// ── 내부 헬퍼: 런타임 큐 drain 디바운서 ─────────────────────────────────────
+// HOTFIX (SPEC-SEARCH-RAG-001 T-004): 런타임에 enqueueIndex 호출 후 자동으로 배치를
+// 드레인한다. 디바운스로 연속 변경을 묶어서 한 번에 처리. App.tsx 초기 drainQueue와
+// 독립적으로 동작하므로 rename/add/remove 직후에도 embed 가 실행된다.
+
+const AUTO_DRAIN_DEBOUNCE_MS = 300
+const MAX_NO_PROGRESS = 2
+let autoDrainTimer: ReturnType<typeof setTimeout> | null = null
+
+const scheduleAutoDrain = (): void => {
+  if (autoDrainTimer !== null) clearTimeout(autoDrainTimer)
+  autoDrainTimer = setTimeout(() => {
+    autoDrainTimer = null
+    void autoDrainQueue()
+  }, AUTO_DRAIN_DEBOUNCE_MS)
+}
+
+const autoDrainQueue = async (): Promise<void> => {
+  let consecutiveNoProgress = 0
+  while (useEmbeddingStore.getState().indexingQueue.length > 0) {
+    const before = useEmbeddingStore.getState().indexingQueue.length
+    await useEmbeddingStore.getState().runIndexBatch()
+    const after = useEmbeddingStore.getState().indexingQueue.length
+
+    if (after >= before) {
+      consecutiveNoProgress++
+      if (consecutiveNoProgress >= MAX_NO_PROGRESS) break
+    } else {
+      consecutiveNoProgress = 0
+    }
+
+    // 메인 스레드 양보
+    await new Promise<void>((resolve) => { setTimeout(resolve, 50) })
+  }
+}
+
 // ── 내부 헬퍼: 저장 (loaded 가드 포함) ─────────────────────────────────────
 
 const persistOne = async (e: BookmarkEmbedding, embeddings: Map<string, BookmarkEmbedding>, loaded: boolean): Promise<void> => {
@@ -179,18 +215,25 @@ export const useEmbeddingStore = create<EmbeddingState>((set, get) => ({
 
   // ── Phase 3: enqueueIndex ────────────────────────────────────────────
   // @MX:NOTE: [AUTO] SPEC-SEARCH-RAG-001 REQ-004,006,007 — 인덱싱 큐 추가
+  // HOTFIX (SPEC-SEARCH-RAG-001 T-004): 기존 embedding 존재 여부로 필터하지 않음
+  // (rename 시 기존 linkId가 재큐잉되어야 contentHash 비교가 의미 있음)
+  // runIndexBatch 내부의 contentHash 비교가 실제 변경 없음을 감지하여 embed 호출 스킵한다.
   enqueueIndex: (linkIds: string[]): void => {
-    const { indexingQueue, embeddings } = get()
+    const { indexingQueue } = get()
     const queueSet = new Set(indexingQueue)
-    const embeddingSet = new Set(embeddings.keys())
 
-    // 큐와 임베딩 Map 중복 제거
-    const newIds = linkIds.filter((id) => !queueSet.has(id) && !embeddingSet.has(id))
+    // 큐 내 중복만 제거 (embeddings Map 존재 여부는 runIndexBatch에서 hash 비교)
+    const newIds = linkIds.filter((id) => !queueSet.has(id))
     if (newIds.length === 0) return
 
     set((state) => ({
       indexingQueue: [...state.indexingQueue, ...newIds],
     }))
+
+    // HOTFIX (SPEC-SEARCH-RAG-001 T-004): enqueue 후 자동 drain 트리거
+    // App.tsx drainQueue는 앱 시작 1회만 실행되므로 런타임 rename/add/remove 시
+    // 큐가 방치되는 문제가 있었음. 300ms 디바운스로 연속 변경을 묶어 처리.
+    scheduleAutoDrain()
   },
 
   // ── Phase 3: runIndexBatch ───────────────────────────────────────────
