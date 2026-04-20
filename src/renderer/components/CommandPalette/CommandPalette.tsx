@@ -440,11 +440,20 @@ export default function CommandPalette({
     [searchResults, selectedIndex, recordUsage, onEditBookmark, onSelectBookmark, onSelectCategory, onSelectTag, handleClose],
   )
 
-  // 키보드 핸들러
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
+  // @MX:NOTE: [AUTO] HOTFIX SPEC-SEARCH-RAG-001 — Windows 키보드 네비게이션 수정
+  // @MX:REASON: [AUTO] 기존 <input> 레벨 onKeyDown은 Windows IME 조합 중 또는 일부 환경에서
+  // ArrowUp/Down 이벤트가 가로채져 동작 안 함. document 레벨 리스너로 이전하여 안정적으로 동작.
+  // isComposing 체크로 IME 조합 중 navigation 억제.
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleDocKeyDown = (e: KeyboardEvent): void => {
+      // IME 조합 중 (한글/일본어 등) navigation 키 무시 — 모던 Chromium/Electron 기준
+      if (e.isComposing) return
+
       switch (e.key) {
         case 'Escape':
+          e.preventDefault()
           handleClose()
           break
         case 'ArrowDown':
@@ -456,6 +465,9 @@ export default function CommandPalette({
           setSelectedIndex(Math.max(selectedIndex - 1, 0))
           break
         case 'Enter': {
+          // Enter는 input에 포커스가 있을 때만 처리 (다른 곳 클릭 시 의도 외 동작 방지)
+          const activeEl = document.activeElement
+          if (activeEl !== inputRef.current) return
           e.preventDefault()
           const isCtrl = e.metaKey || e.ctrlKey
           const isAlt = e.altKey
@@ -465,9 +477,11 @@ export default function CommandPalette({
         default:
           break
       }
-    },
-    [handleClose, setSelectedIndex, selectedIndex, searchResults.length, executeSelected],
-  )
+    }
+
+    document.addEventListener('keydown', handleDocKeyDown)
+    return () => document.removeEventListener('keydown', handleDocKeyDown)
+  }, [isOpen, selectedIndex, searchResults.length, handleClose, setSelectedIndex, executeSelected])
 
   // 오버레이 클릭 핸들러
   const handleOverlayMouseDown = (e: React.MouseEvent<HTMLDivElement>): void => {
@@ -522,7 +536,6 @@ export default function CommandPalette({
           onChange={(e) => {
             setQuery(e.target.value)
           }}
-          onKeyDown={handleKeyDown}
           autoComplete="off"
           autoFocus
         />
