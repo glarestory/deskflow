@@ -27,7 +27,11 @@ export default defineConfig({
 
   webServer: {
     // @MX:NOTE: --host 127.0.0.1 — 일부 샌드박스 환경에서 Vite 기본 host 가 외부 연결을 거부하여 명시 필요
+    // @MX:NOTE: VITE_E2E_TEST_MODE=true — authStore initAuth 분기로 Firebase 구독 우회 (SPEC-E2E-AUTH-BYPASS-001)
     command: 'npm run dev:web -- --host 127.0.0.1',
+    env: {
+      VITE_E2E_TEST_MODE: 'true',
+    },
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
