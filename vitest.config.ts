@@ -10,8 +10,20 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
     coverage: {
       provider: 'v8',
-      include: ['src/renderer/**/*.{ts,tsx}'],
-      exclude: ['src/renderer/**/*.test.{ts,tsx}', 'src/renderer/__tests__/**'],
+      include: [
+        'src/renderer/**/*.{ts,tsx}',
+        'src/main/**/*.ts',
+        'src/preload/**/*.ts',
+      ],
+      exclude: [
+        'src/renderer/**/*.test.{ts,tsx}',
+        'src/renderer/__tests__/**',
+        'src/main/**/*.test.ts',
+        'src/preload/**/*.test.ts',
+        'src/**/*.d.ts',
+        'src/renderer/main.tsx',
+        'src/renderer/types/**',
+      ],
       thresholds: {
         lines: 85,
         functions: 85,

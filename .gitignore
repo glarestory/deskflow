@@ -205,3 +205,10 @@ dist-ssr/
 .vercel/
 .netlify/
 .firebase/
+
+# ===========================================
+# Playwright
+# ===========================================
+playwright-report/
+test-results/
+/playwright/.cache/
