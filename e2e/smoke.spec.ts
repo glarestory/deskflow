@@ -1,68 +1,111 @@
-// @MX:TEST: 웹 빌드 인증 게이트 + 기본 부팅 스모크 (Electron 비의존).
+// @MX:TEST: SPEC-E2E-AUTH-BYPASS-001 — 인증 우회 활성화 후 메인 UI 스모크.
 // 실행: npm run test:e2e
-//
-// dev:web 빌드는 Firebase 인증 게이트를 거쳐야 메인 UI 에 진입한다. 인증을 우회할 수 있는
-// 게스트 모드/테스트 플래그가 없어, 이 스모크는 LoginScreen 단계에서 검증 가능한 것만
-// 다룬다. 인증 후 시나리오(Command Palette, 캡슐 등)는 별도 SPEC 으로 e2e 인증 우회
-// 메커니즘을 추가한 뒤 확장한다.
-import { test, expect } from '@playwright/test'
+// 사전 조건: playwright.config.ts 의 webServer env 가 VITE_E2E_TEST_MODE=true 로 설정되어
+// authStore 가 mock user 를 즉시 주입한다. 프로덕션 빌드에는 이 분기가 정적으로 평가되어
+// 트리쉐이킹된다.
+import { test, expect, type Page } from '@playwright/test'
 
-test.describe('Deskflow 웹 빌드 스모크', () => {
+/**
+ * 메인 UI 안정화 헬퍼 — sidebar-item-all 이 visible 할 때까지 대기.
+ * 이후 body 에 명시 click 으로 keyboard focus 가 root document 에 머무르도록 보장.
+ */
+const waitForAuthenticatedUI = async (page: Page): Promise<void> => {
+  await expect(page.getByTestId('sidebar-item-all')).toBeVisible({ timeout: 15_000 })
+  // RAG/embedding 백그라운드 작업이 키 이벤트를 방해하지 않도록 짧게 안정화 대기
+  await page.locator('body').click({ position: { x: 1, y: 1 } })
+}
+
+test.describe('Deskflow 웹 빌드 — 부팅', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
-    // 이전 세션 누수 방지
     await page.evaluate(() => localStorage.clear())
+    await page.goto('/')
   })
 
   test('루트 페이지 로딩 후 React 가 #root 에 마운트된다', async ({ page }) => {
-    await page.goto('/')
     const root = page.locator('#root')
     await expect(root).not.toBeEmpty({ timeout: 10_000 })
   })
 
-  test('미인증 상태에서 LoginScreen 이 표시된다', async ({ page }) => {
-    await page.goto('/')
-
-    // h1 으로 노출되지 않을 수도 있어, 텍스트 기반 단언을 사용
-    await expect(page.getByText('Deskflow', { exact: false })).toBeVisible({
-      timeout: 10_000,
-    })
-    await expect(page.getByText('계속하려면 로그인하세요')).toBeVisible()
-  })
-
-  test('LoginScreen 에 Google/GitHub 로그인 버튼이 노출된다 (a11y name 확인)', async ({
-    page,
-  }) => {
-    await page.goto('/')
-
-    await expect(page.getByRole('button', { name: /Google로 로그인/ })).toBeVisible({
-      timeout: 10_000,
-    })
-    await expect(page.getByRole('button', { name: /GitHub로 로그인/ })).toBeVisible()
-  })
-
-  test('JS 콘솔에서 치명적 boot 에러가 발생하지 않는다 (Firebase placeholder 환경)', async ({
-    page,
-  }) => {
-    const fatalErrors: string[] = []
-
+  test('JS 콘솔에서 치명적 boot 에러가 발생하지 않는다', async ({ page }) => {
+    const fatal: string[] = []
     page.on('pageerror', (err) => {
-      fatalErrors.push(err.message)
+      if (/ReferenceError|TypeError|SyntaxError/.test(err.message)) fatal.push(err.message)
     })
 
     await page.goto('/')
-    // React 마운트 + 초기 useEffect 처리 시간 확보
-    await page.waitForLoadState('networkidle')
-
-    // Firebase 인증 실패는 정상 흐름이지만, ReferenceError/TypeError 같은 코드 결함은 없어야 한다
-    const fatal = fatalErrors.filter(
-      (msg) => /ReferenceError|TypeError|SyntaxError/.test(msg),
-    )
+    await page.waitForLoadState('domcontentloaded')
+    await waitForAuthenticatedUI(page)
     expect(fatal).toEqual([])
   })
+})
 
-  test.fixme(
-    '인증 후 Cmd+K 로 Command Palette 가 열린다 (인증 우회 메커니즘 추가 후 활성화)',
-    async () => {},
-  )
+test.describe('Deskflow 웹 빌드 — E2E 우회 인증 (SPEC-E2E-AUTH-BYPASS-001)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
+    await page.evaluate(() => localStorage.clear())
+    await page.goto('/')
+  })
+
+  test('LoginScreen 대신 메인 UI(PivotLayout)에 진입하고 mock user 가 노출된다', async ({
+    page,
+  }) => {
+    await waitForAuthenticatedUI(page)
+
+    // mock user 의 displayName 이 사이드바에 표시되는지 확인
+    await expect(page.getByText('E2E Test User')).toBeVisible()
+
+    // LoginScreen 의 OAuth 버튼은 더 이상 노출되지 않아야 한다
+    await expect(page.getByRole('button', { name: /Google로 로그인/ })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /GitHub로 로그인/ })).toHaveCount(0)
+  })
+
+  test('Cmd+K (Meta) 단축키로 Command Palette 가 열린다', async ({ page }) => {
+    await waitForAuthenticatedUI(page)
+
+    await page.keyboard.press('Meta+k')
+    await expect(page.getByTestId('command-palette-overlay')).toBeVisible({ timeout: 5_000 })
+  })
+
+  test('Ctrl+K 단축키로 Command Palette 가 열린다 (Windows/Linux)', async ({ page }) => {
+    await waitForAuthenticatedUI(page)
+
+    await page.keyboard.press('Control+k')
+    await expect(page.getByTestId('command-palette-overlay')).toBeVisible({ timeout: 5_000 })
+  })
+
+  test('Command Palette 가 열린 상태에서 Escape 입력 시 닫힌다', async ({ page }) => {
+    await waitForAuthenticatedUI(page)
+
+    await page.keyboard.press('Control+k')
+    await expect(page.getByTestId('command-palette-overlay')).toBeVisible({ timeout: 5_000 })
+
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('command-palette-overlay')).toHaveCount(0, {
+      timeout: 5_000,
+    })
+  })
+
+  test('Command Palette 검색어 입력 시 결과가 갱신된다', async ({ page }) => {
+    await waitForAuthenticatedUI(page)
+
+    await page.keyboard.press('Control+k')
+    await expect(page.getByTestId('command-palette-overlay')).toBeVisible({ timeout: 5_000 })
+
+    await page.keyboard.type('GitHub')
+
+    // 결과 영역 — 매칭 결과 또는 empty 상태 둘 중 하나는 노출되어야 한다
+    const palette = page.getByTestId('command-palette-overlay')
+    const hasMatch = await palette
+      .getByText('GitHub', { exact: false })
+      .first()
+      .isVisible({ timeout: 3_000 })
+      .catch(() => false)
+    const hasEmpty = await page
+      .getByTestId('command-palette-empty')
+      .isVisible()
+      .catch(() => false)
+
+    expect(hasMatch || hasEmpty).toBe(true)
+  })
 })
