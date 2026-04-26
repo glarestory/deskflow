@@ -268,7 +268,9 @@ describe('pomodoroStore', () => {
   it('updateSettings()는 storage에 설정을 영속화해야 한다', async () => {
     const { usePomodoroStore } = await import('./pomodoroStore')
     usePomodoroStore.getState().updateSettings({ focusMinutes: 30 })
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    // storage.set 은 동기 호출이므로 mockSet 은 이미 invoke 됨.
+    // 기존엔 setTimeout(0) 으로 microtask 를 기다렸으나, beforeEach 의
+    // vi.useFakeTimers() 와 충돌하여 영구 대기에 빠지는 결함이 있어 제거한다.
     expect(mockSet).toHaveBeenCalledWith(
       'pomodoro-settings',
       expect.stringContaining('30')
