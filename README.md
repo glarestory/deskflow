@@ -1,5 +1,7 @@
 # Deskflow
 
+[![CI](https://github.com/glarestory/deskflow/actions/workflows/ci.yml/badge.svg)](https://github.com/glarestory/deskflow/actions/workflows/ci.yml)
+
 개인 생산성을 극대화하는 올인원 데스크톱 허브 애플리케이션.
 
 Electron + React 19 + TypeScript로 구현된 크로스플랫폼 데스크톱 앱으로,
