@@ -26,7 +26,8 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm run dev:web',
+    // @MX:NOTE: --host 127.0.0.1 — 일부 샌드박스 환경에서 Vite 기본 host 가 외부 연결을 거부하여 명시 필요
+    command: 'npm run dev:web -- --host 127.0.0.1',
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

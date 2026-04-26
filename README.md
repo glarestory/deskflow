@@ -68,6 +68,9 @@ npm run build
 | `npm run preview` | 빌드된 앱 미리보기 |
 | `npm test` | Vitest 테스트 실행 |
 | `npm run test:coverage` | 커버리지 리포트 생성 |
+| `npm run test:e2e` | Playwright E2E 스모크 실행 (`dev:web` 자동 기동) |
+| `npm run test:e2e:ui` | Playwright UI 모드 (대화형 디버깅) |
+| `npm run test:e2e:install` | 최초 1회 chromium 브라우저 설치 |
 | `npm run lint` | ESLint 검사 |
 | `npm run format` | Prettier 포맷팅 |
 | `npm run typecheck` | TypeScript 타입 검사 |
