@@ -412,3 +412,25 @@ body {
     transform: scale(1) translateY(0);
   }
 }
+
+/* ========================================
+ * SPEC-MOBILE-RESPONSIVE-001 - 모바일 최적화
+ * ========================================
+ */
+
+/* 호버 미지원 환경(터치 디바이스)에서 호버로만 노출되던 액션을 항상 표시 */
+@media (hover: none) {
+  [data-hover-reveal] {
+    opacity: 1 !important;
+  }
+}
+
+/* 모바일 viewport 에서 input/textarea 폰트 크기 16px 강제
+   - iOS Safari 가 16px 미만 입력 필드 포커스 시 자동 줌하는 동작을 방지 */
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}

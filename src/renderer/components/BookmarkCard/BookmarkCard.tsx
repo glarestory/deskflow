@@ -57,6 +57,7 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): J
         </div>
         <button
           onClick={() => onEdit(category)}
+          data-hover-reveal
           style={{
             background: 'none',
             border: 'none',
@@ -64,6 +65,9 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): J
             fontSize: 14,
             opacity: 0.35,
             color: 'var(--text-primary)',
+            // SPEC-MOBILE-RESPONSIVE-001: 모바일 터치 hit-area
+            minWidth: 44,
+            minHeight: 44,
           }}
           aria-label="편집"
         >

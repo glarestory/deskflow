@@ -179,13 +179,17 @@ export function BookmarkRow({ link, style, index }: BookmarkRowProps): JSX.Eleme
         </span>
       )}
 
-      {/* 즐겨찾기 버튼 */}
+      {/* 즐겨찾기 버튼
+          SPEC-MOBILE-RESPONSIVE-001: 모바일 터치를 위해 hit-area 를 44px 로 확장.
+          시각적 아이콘은 14px 그대로, padding 으로 클릭 영역만 늘린다. */}
       <button
         data-testid={`favorite-btn-${link.id}`}
         data-active={link.favorite === true}
         onClick={handleFavoriteClick}
         title={link.favorite === true ? '즐겨찾기 해제' : '즐겨찾기 추가'}
         style={{
+          minWidth: 44,
+          minHeight: 44,
           width: 24,
           height: 24,
           borderRadius: 4,
