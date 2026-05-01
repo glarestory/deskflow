@@ -60,7 +60,9 @@ export default function EditModal({
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 999,
-        padding: 20,
+        // SPEC-MOBILE-RESPONSIVE-001: safe-area 고려 (노치/홈 인디케이터)
+        padding:
+          'max(20px, env(safe-area-inset-top, 20px)) 20px max(20px, env(safe-area-inset-bottom, 20px))',
       }}
       onClick={handleOverlayClick}
     >
@@ -71,7 +73,8 @@ export default function EditModal({
           padding: 28,
           maxWidth: 500,
           width: '100%',
-          maxHeight: '80vh',
+          // SPEC-MOBILE-RESPONSIVE-001: 모바일 키보드 펼침 시에도 잘리지 않도록 svh 사용
+          maxHeight: '80svh',
           overflowY: 'auto',
           border: '1px solid var(--border)',
         }}

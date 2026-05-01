@@ -22,6 +22,24 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      // mobile.spec.ts 는 mobile 프로젝트에서만 실행
+      testIgnore: '**/mobile.spec.ts',
+    },
+    // SPEC-MOBILE-RESPONSIVE-001: 모바일 viewport (chromium 기반, iPhone 12 크기)
+    // iPhone 12 device emulation 은 webkit 의존이라 chromium 환경에서 사용 불가 →
+    // chromium 에서 모바일 viewport + touch 만 시뮬레이션
+    {
+      name: 'mobile',
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 390, height: 844 },
+        userAgent:
+          'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+        hasTouch: true,
+        isMobile: true,
+        deviceScaleFactor: 3,
+      },
+      testMatch: '**/mobile.spec.ts',
     },
   ],
 
