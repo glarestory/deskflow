@@ -1,10 +1,13 @@
 // @MX:NOTE: [AUTO] ImportModal — Chrome 북마크 HTML 파일 가져오기 모달
-// @MX:SPEC: SPEC-IMPORT-001
+// @MX:SPEC: SPEC-IMPORT-001, SPEC-A11Y-MODAL-001
 import { useState, useRef } from 'react'
 import { parseChromeBookmarkHtml } from '../../lib/bookmarkParser'
 import type { ParseResult } from '../../lib/bookmarkParser'
 import { useBookmarkStore } from '../../stores/bookmarkStore'
+import { useModalA11y } from '../../hooks/useModalA11y'
 import type { Bookmark } from '../../types'
+
+const TITLE_ID = 'import-modal-title'
 
 interface ImportModalProps {
   onClose: () => void
@@ -17,7 +20,11 @@ export default function ImportModal({ onClose }: ImportModalProps): JSX.Element 
   const [parseResult, setParseResult] = useState<ParseResult | null>(null)
   const [errorMessage, setErrorMessage] = useState<string>('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
   const { importBookmarks } = useBookmarkStore()
+
+  // SPEC-A11Y-MODAL-001
+  useModalA11y({ isOpen: true, onClose, containerRef: dialogRef })
 
   const handleFileButtonClick = () => {
     fileInputRef.current?.click()
@@ -77,6 +84,10 @@ export default function ImportModal({ onClose }: ImportModalProps): JSX.Element 
       onClick={handleOverlayClick}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={TITLE_ID}
         style={{
           background: 'var(--card-bg)',
           borderRadius: 20,
@@ -90,6 +101,7 @@ export default function ImportModal({ onClose }: ImportModalProps): JSX.Element 
         }}
       >
         <h3
+          id={TITLE_ID}
           style={{
             fontSize: 18,
             fontWeight: 700,

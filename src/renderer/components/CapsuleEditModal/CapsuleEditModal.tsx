@@ -1,9 +1,10 @@
 // @MX:NOTE: [AUTO] CapsuleEditModal — 캡슐 생성/편집 모달
-// @MX:SPEC: SPEC-CAPSULE-001 REQ-009, AC-014~AC-016
-import { useState } from 'react'
+// @MX:SPEC: SPEC-CAPSULE-001 REQ-009, AC-014~AC-016, SPEC-A11Y-MODAL-001
+import { useRef, useState } from 'react'
 import type { Capsule, PomodoroPreset } from '../../types/capsule'
 import TagInput from '../TagInput/TagInput'
 import { useTagStore } from '../../stores/tagStore'
+import { useModalA11y } from '../../hooks/useModalA11y'
 
 // 이름 최대 길이 (AC-015)
 const NAME_MAX = 60
@@ -52,6 +53,10 @@ export default function CapsuleEditModal({
 
   const allTags = useTagStore((s) => s.allTags)
   const tagSuggestions = allTags.map((t) => t.tag)
+  const dialogRef = useRef<HTMLDivElement>(null)
+
+  // SPEC-A11Y-MODAL-001
+  useModalA11y({ isOpen: true, onClose, containerRef: dialogRef })
 
   // 유효성 검사
   const isNameEmpty = name.trim().length === 0
@@ -104,6 +109,7 @@ export default function CapsuleEditModal({
       onClick={handleOverlayClick}
     >
       <div
+        ref={dialogRef}
         data-testid="capsule-edit-modal"
         style={{
           background: 'var(--card-bg)',

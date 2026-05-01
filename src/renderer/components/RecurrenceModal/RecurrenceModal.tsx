@@ -1,13 +1,15 @@
 // @MX:NOTE: [AUTO] RecurrenceModal — 반복 할 일 추가 모달 컴포넌트
-// @MX:SPEC: SPEC-TODO-002
-import { useState } from 'react'
+// @MX:SPEC: SPEC-TODO-002, SPEC-A11Y-MODAL-001
+import { useRef, useState } from 'react'
 import type { Recurrence } from '../../types'
+import { useModalA11y } from '../../hooks/useModalA11y'
 
 // 반복 유형 선택 옵션
 type RecurrenceType = 'none' | 'daily' | 'weekly' | 'monthly'
 
 // 요일 레이블 (0=일, 1=월, ..., 6=토)
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+const TITLE_ID = 'recurrence-modal-title'
 
 interface RecurrenceModalProps {
   isOpen: boolean
@@ -20,6 +22,10 @@ export default function RecurrenceModal({ isOpen, onClose, onConfirm }: Recurren
   const [recType, setRecType] = useState<RecurrenceType>('daily')
   const [selectedDays, setSelectedDays] = useState<number[]>([])
   const [dayOfMonth, setDayOfMonth] = useState<string>('')
+  const dialogRef = useRef<HTMLDivElement>(null)
+
+  // SPEC-A11Y-MODAL-001 — isOpen 분기로 useEffect 자체가 활성/비활성
+  useModalA11y({ isOpen, onClose, containerRef: dialogRef })
 
   if (!isOpen) return null
 
@@ -82,6 +88,10 @@ export default function RecurrenceModal({ isOpen, onClose, onConfirm }: Recurren
       onClick={handleClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={TITLE_ID}
         style={{
           background: 'var(--card-bg)',
           borderRadius: 16,
@@ -99,7 +109,7 @@ export default function RecurrenceModal({ isOpen, onClose, onConfirm }: Recurren
         onClick={(e) => e.stopPropagation()}
       >
         {/* 제목 */}
-        <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>
+        <div id={TITLE_ID} style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)' }}>
           반복 할 일 추가
         </div>
 
@@ -147,26 +157,31 @@ export default function RecurrenceModal({ isOpen, onClose, onConfirm }: Recurren
 
         {/* 매주: 요일 선택 */}
         {recType === 'weekly' && (
-          <div style={{ display: 'flex', gap: 6 }}>
-            {DAY_LABELS.map((label, idx) => (
-              <button
-                key={idx}
-                onClick={() => toggleDay(idx)}
-                style={{
-                  flex: 1,
-                  padding: '6px 2px',
-                  borderRadius: 8,
-                  border: selectedDays.includes(idx) ? 'none' : '1px solid var(--border)',
-                  background: selectedDays.includes(idx) ? 'var(--accent)' : 'var(--link-bg)',
-                  color: selectedDays.includes(idx) ? '#fff' : 'var(--text-primary)',
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  fontWeight: selectedDays.includes(idx) ? 600 : 400,
-                }}
-              >
-                {label}
-              </button>
-            ))}
+          <div style={{ display: 'flex', gap: 6 }} role="group" aria-label="요일 선택">
+            {DAY_LABELS.map((label, idx) => {
+              const selected = selectedDays.includes(idx)
+              return (
+                <button
+                  key={idx}
+                  onClick={() => toggleDay(idx)}
+                  aria-pressed={selected}
+                  aria-label={`${label}요일 ${selected ? '선택됨' : '선택 안 됨'}`}
+                  style={{
+                    flex: 1,
+                    padding: '6px 2px',
+                    borderRadius: 8,
+                    border: selected ? 'none' : '1px solid var(--border)',
+                    background: selected ? 'var(--accent)' : 'var(--link-bg)',
+                    color: selected ? '#fff' : 'var(--text-primary)',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    fontWeight: selected ? 600 : 400,
+                  }}
+                >
+                  {label}
+                </button>
+              )
+            })}
           </div>
         )}
 
