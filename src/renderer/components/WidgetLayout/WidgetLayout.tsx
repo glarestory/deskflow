@@ -1,6 +1,7 @@
 // @MX:NOTE: [AUTO] WidgetLayout — 기존 ReactGridLayout 기반 드래그 위젯 그리드 레이아웃 컴포넌트
 // @MX:NOTE: [AUTO] App.tsx에서 추출 (SPEC-UX-005 T-003). viewMode === 'widgets'일 때 렌더링됨
-// @MX:SPEC: SPEC-UX-005, SPEC-LAYOUT-001, SPEC-UI-001, SPEC-CAPSULE-001
+// @MX:SPEC: SPEC-UX-005, SPEC-LAYOUT-001, SPEC-UI-001, SPEC-CAPSULE-001, SPEC-MOBILE-RESPONSIVE-001
+import { useMemo } from 'react'
 import ReactGridLayout from 'react-grid-layout'
 import { WidthProvider } from 'react-grid-layout/legacy'
 import 'react-grid-layout/css/styles.css'
@@ -11,6 +12,7 @@ import { useBookmarkStore } from '../../stores/bookmarkStore'
 import { useThemeStore } from '../../stores/themeStore'
 import { useLayoutStore } from '../../stores/layoutStore'
 import { useAuthStore } from '../../stores/authStore'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import Clock from '../Clock/Clock'
 import SearchBar from '../SearchBar/SearchBar'
 import BookmarkCard from '../BookmarkCard/BookmarkCard'
@@ -26,6 +28,17 @@ const ResponsiveGridLayout = WidthProvider(ReactGridLayout)
 const GRID_COLS = 12
 const GRID_ROW_HEIGHT = 60
 const GRID_MARGIN: [number, number] = [16, 16]
+
+// SPEC-MOBILE-RESPONSIVE-001: 모바일(<=640px)에서 단일 컬럼 세로 스택 레이아웃
+const MOBILE_COLS = 1
+const MOBILE_LAYOUT: WidgetLayoutItem[] = [
+  { i: 'clock', x: 0, y: 0, w: 1, h: 2 },
+  { i: 'search', x: 0, y: 2, w: 1, h: 2 },
+  { i: 'bookmarks', x: 0, y: 4, w: 1, h: 6 },
+  { i: 'todo', x: 0, y: 10, w: 1, h: 5 },
+  { i: 'notes', x: 0, y: 15, w: 1, h: 4 },
+  { i: 'feed', x: 0, y: 19, w: 1, h: 4 },
+]
 
 /** WidgetLayout 컴포넌트 props */
 export interface WidgetLayoutProps {
@@ -68,6 +81,21 @@ export default function WidgetLayout({
   const { mode, toggleMode } = useThemeStore()
   const { layout, resetLayout } = useLayoutStore()
   const { user, signOut } = useAuthStore()
+  const isMobile = useIsMobile()
+
+  // SPEC-MOBILE-RESPONSIVE-001: 모바일에서는 1-column 세로 스택, 드래그/리사이즈 비활성
+  const activeLayout = useMemo(
+    () => (isMobile ? MOBILE_LAYOUT : layout),
+    [isMobile, layout],
+  )
+  const activeCols = isMobile ? MOBILE_COLS : GRID_COLS
+
+  // 모바일에서는 layout 변경이 propagate 되지 않도록 onLayoutChange 무력화
+  // (handleLayoutChange 가 호출되어 layoutStore 의 데스크톱 layout 을 덮어쓰는 것을 방지)
+  const onLayoutChangeGuarded = (newLayout: WidgetLayoutItem[]): void => {
+    if (isMobile) return
+    handleLayoutChange(newLayout)
+  }
 
   // onTogglePivotMode prop이 있으면 우선 사용, 없으면 store 직접 호출
   const handlePivotModeClick = (): void => {
@@ -92,9 +120,12 @@ export default function WidgetLayout({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '16px 28px',
+          padding: isMobile ? '12px 12px' : '16px 28px',
           maxWidth: 1440,
           margin: '0 auto',
+          // SPEC-MOBILE-RESPONSIVE-001: 모바일에서 버튼 묶음이 줄바꿈되도록
+          flexWrap: isMobile ? 'wrap' : 'nowrap',
+          gap: isMobile ? 8 : 0,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -291,21 +322,22 @@ export default function WidgetLayout({
 
       {/* 메인 그리드 레이아웃 (react-grid-layout) */}
       <div
+        data-testid="widget-grid-container"
         style={{
           maxWidth: 1440,
           margin: '0 auto',
-          padding: '0 28px 40px',
+          padding: isMobile ? '0 12px 24px' : '0 28px 40px',
         }}
       >
         <ResponsiveGridLayout
-          layout={layout}
-          cols={GRID_COLS}
+          layout={activeLayout}
+          cols={activeCols}
           rowHeight={GRID_ROW_HEIGHT}
           margin={GRID_MARGIN}
-          onLayoutChange={handleLayoutChange}
+          onLayoutChange={onLayoutChangeGuarded}
           draggableHandle=".widget-drag-handle"
-          isResizable={true}
-          isDraggable={true}
+          isResizable={!isMobile}
+          isDraggable={!isMobile}
           measureBeforeMount={false}
         >
           {/* Clock 위젯 */}
