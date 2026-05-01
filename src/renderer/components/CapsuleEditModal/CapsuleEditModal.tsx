@@ -97,7 +97,9 @@ export default function CapsuleEditModal({
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1000,
-        padding: 20,
+        // SPEC-MOBILE-RESPONSIVE-001: safe-area 고려 (노치/홈 인디케이터)
+        padding:
+          'max(20px, env(safe-area-inset-top, 20px)) 20px max(20px, env(safe-area-inset-bottom, 20px))',
       }}
       onClick={handleOverlayClick}
     >
@@ -109,7 +111,8 @@ export default function CapsuleEditModal({
           padding: 28,
           maxWidth: 480,
           width: '100%',
-          maxHeight: '85vh',
+          // SPEC-MOBILE-RESPONSIVE-001: 모바일 키보드 펼침 시에도 잘리지 않도록 svh 사용
+          maxHeight: '85svh',
           overflowY: 'auto',
           border: '1px solid var(--border)',
           boxShadow: '0 8px 40px var(--shadow)',

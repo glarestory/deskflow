@@ -75,6 +75,9 @@ export default function RecurrenceModal({ isOpen, onClose, onConfirm }: Recurren
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1000,
+        // SPEC-MOBILE-RESPONSIVE-001: safe-area 고려
+        padding:
+          'max(20px, env(safe-area-inset-top, 20px)) 20px max(20px, env(safe-area-inset-bottom, 20px))',
       }}
       onClick={handleClose}
     >
@@ -84,6 +87,10 @@ export default function RecurrenceModal({ isOpen, onClose, onConfirm }: Recurren
           borderRadius: 16,
           padding: '24px',
           minWidth: 320,
+          maxWidth: '100%',
+          // SPEC-MOBILE-RESPONSIVE-001: 모바일 키보드 펼침 시 스크롤 가능
+          maxHeight: '80svh',
+          overflowY: 'auto',
           border: '1px solid var(--border)',
           display: 'flex',
           flexDirection: 'column',

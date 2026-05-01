@@ -70,7 +70,9 @@ export default function ImportModal({ onClose }: ImportModalProps): JSX.Element 
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 999,
-        padding: 20,
+        // SPEC-MOBILE-RESPONSIVE-001: safe-area 고려
+        padding:
+          'max(20px, env(safe-area-inset-top, 20px)) 20px max(20px, env(safe-area-inset-bottom, 20px))',
       }}
       onClick={handleOverlayClick}
     >
@@ -81,6 +83,9 @@ export default function ImportModal({ onClose }: ImportModalProps): JSX.Element 
           padding: 28,
           maxWidth: 480,
           width: '100%',
+          // SPEC-MOBILE-RESPONSIVE-001: 모바일 키보드 펼침 시 스크롤 가능
+          maxHeight: '80svh',
+          overflowY: 'auto',
           border: '1px solid var(--border)',
         }}
       >
