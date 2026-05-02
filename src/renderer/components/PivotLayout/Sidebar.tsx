@@ -1,6 +1,7 @@
 // @MX:ANCHOR: [AUTO] Sidebar — Pivot 레이아웃 사이드바 컨테이너
 // @MX:REASON: [AUTO] PivotLayout, MainView, App.tsx가 참조하는 Pivot UI 진입점
 // @MX:SPEC: SPEC-UX-003, SPEC-MOBILE-RESPONSIVE-001
+import { ChevronLeft, ChevronRight, LayoutList, Star } from 'lucide-react'
 import { useViewStore } from '../../stores/viewStore'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { SidebarCategoryList } from './SidebarCategoryList'
@@ -25,6 +26,41 @@ export function Sidebar(): JSX.Element {
   const desktopWidth = sidebarCollapsed ? '60px' : '250px'
   const mobileWidth = '80vw'
 
+  const navItemStyle = (active: boolean): React.CSSProperties => ({
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+    gap: sidebarCollapsed ? 0 : 'var(--space-2)',
+    justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+    width: '100%',
+    padding: sidebarCollapsed ? '8px 0' : '7px var(--space-3)',
+    border: 'none',
+    borderRadius: 'var(--radius-md)',
+    background: active ? 'var(--accent-soft)' : 'transparent',
+    color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+    cursor: 'pointer',
+    fontSize: 13,
+    fontFamily: 'inherit',
+    fontWeight: active ? 600 : 500,
+    transition: 'background var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out)',
+  })
+
+  const ActiveIndicator = ({ active }: { active: boolean }): JSX.Element | null =>
+    active && !sidebarCollapsed ? (
+      <span
+        aria-hidden
+        style={{
+          position: 'absolute',
+          left: -4,
+          top: 8,
+          bottom: 8,
+          width: 2,
+          background: 'var(--accent)',
+          borderRadius: 'var(--radius-pill)',
+        }}
+      />
+    ) : null
+
   return (
     <aside
       data-testid="sidebar"
@@ -36,9 +72,11 @@ export function Sidebar(): JSX.Element {
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        background: 'var(--card-bg)',
+        background: 'var(--surface-1)',
         borderRight: '1px solid var(--border)',
-        transition: isMobile ? 'transform 0.25s ease' : 'width 0.2s ease',
+        transition: isMobile
+          ? 'transform var(--motion-base) var(--ease-out)'
+          : 'width var(--motion-base) var(--ease-out)',
         overflow: 'hidden',
         position: isMobile ? 'fixed' : 'relative',
         top: isMobile ? 0 : undefined,
@@ -54,9 +92,11 @@ export function Sidebar(): JSX.Element {
           display: 'flex',
           alignItems: 'center',
           justifyContent: sidebarCollapsed ? 'center' : 'space-between',
-          padding: sidebarCollapsed ? '16px 8px' : '16px 12px',
-          borderBottom: '1px solid var(--border)',
+          padding: sidebarCollapsed ? 'var(--space-4) var(--space-2)' : 'var(--space-4) var(--space-3)',
+          borderBottom: '1px solid var(--border-subtle)',
           flexShrink: 0,
+          height: 56,
+          boxSizing: 'border-box',
         }}
       >
         {!sidebarCollapsed && (
@@ -65,7 +105,7 @@ export function Sidebar(): JSX.Element {
               fontWeight: 700,
               fontSize: 14,
               color: 'var(--text-primary)',
-              letterSpacing: -0.3,
+              letterSpacing: '-0.02em',
             }}
           >
             Deskflow
@@ -75,22 +115,33 @@ export function Sidebar(): JSX.Element {
           data-testid="sidebar-toggle"
           onClick={toggleSidebar}
           title={sidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
+          aria-label={sidebarCollapsed ? '사이드바 펼치기' : '사이드바 접기'}
           style={{
             // 모바일에서는 44x44 (Apple HIG / WCAG 2.5.5 권장 터치 영역)
-            width: isMobile ? 44 : 28,
-            height: isMobile ? 44 : 28,
-            borderRadius: 6,
+            width: isMobile ? 44 : 26,
+            height: isMobile ? 44 : 26,
+            borderRadius: 'var(--radius-sm)',
             border: '1px solid var(--border)',
             background: 'transparent',
             color: 'var(--text-muted)',
             cursor: 'pointer',
-            fontSize: isMobile ? 16 : 12,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            transition: 'background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--surface-2)'
+            e.currentTarget.style.color = 'var(--text-primary)'
+            e.currentTarget.style.borderColor = 'var(--border-strong)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = 'var(--text-muted)'
+            e.currentTarget.style.borderColor = 'var(--border)'
           }}
         >
-          {sidebarCollapsed ? '→' : '←'}
+          {sidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
       </div>
 
@@ -102,7 +153,10 @@ export function Sidebar(): JSX.Element {
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
-          padding: '8px 0',
+          padding: 'var(--space-2) var(--space-2)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
         }}
       >
         {/* 전체 */}
@@ -112,23 +166,16 @@ export function Sidebar(): JSX.Element {
           role="treeitem"
           aria-selected={isAllActive}
           onClick={() => setContext({ kind: 'all' })}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: sidebarCollapsed ? 0 : 8,
-            justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-            width: '100%',
-            padding: sidebarCollapsed ? '8px 0' : '7px 12px',
-            border: 'none',
-            borderRadius: 8,
-            background: isAllActive ? 'var(--accent)' : 'transparent',
-            color: isAllActive ? '#fff' : 'var(--text-primary)',
-            cursor: 'pointer',
-            fontSize: 13,
-            fontWeight: isAllActive ? 600 : 400,
+          style={navItemStyle(isAllActive)}
+          onMouseEnter={(e) => {
+            if (!isAllActive) e.currentTarget.style.background = 'var(--surface-2)'
+          }}
+          onMouseLeave={(e) => {
+            if (!isAllActive) e.currentTarget.style.background = 'transparent'
           }}
         >
-          <span>📋</span>
+          <ActiveIndicator active={isAllActive} />
+          <LayoutList size={15} strokeWidth={2} style={{ color: isAllActive ? 'var(--accent)' : 'var(--text-muted)', flexShrink: 0 }} />
           {!sidebarCollapsed && <span>전체</span>}
         </button>
 
@@ -139,23 +186,21 @@ export function Sidebar(): JSX.Element {
           role="treeitem"
           aria-selected={isFavActive}
           onClick={() => setContext({ kind: 'favorites' })}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: sidebarCollapsed ? 0 : 8,
-            justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-            width: '100%',
-            padding: sidebarCollapsed ? '8px 0' : '7px 12px',
-            border: 'none',
-            borderRadius: 8,
-            background: isFavActive ? 'var(--accent)' : 'transparent',
-            color: isFavActive ? '#fff' : 'var(--text-primary)',
-            cursor: 'pointer',
-            fontSize: 13,
-            fontWeight: isFavActive ? 600 : 400,
+          style={navItemStyle(isFavActive)}
+          onMouseEnter={(e) => {
+            if (!isFavActive) e.currentTarget.style.background = 'var(--surface-2)'
+          }}
+          onMouseLeave={(e) => {
+            if (!isFavActive) e.currentTarget.style.background = 'transparent'
           }}
         >
-          <span>⭐</span>
+          <ActiveIndicator active={isFavActive} />
+          <Star
+            size={15}
+            strokeWidth={2}
+            fill={isFavActive ? 'currentColor' : 'none'}
+            style={{ color: isFavActive ? 'var(--favorite)' : 'var(--text-muted)', flexShrink: 0 }}
+          />
           {!sidebarCollapsed && <span>즐겨찾기</span>}
         </button>
 

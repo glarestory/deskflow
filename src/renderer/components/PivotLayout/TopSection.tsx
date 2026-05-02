@@ -40,15 +40,16 @@ export function TopSection(): JSX.Element {
   if (topItems.length === 0) return <div data-testid="top-section" />
 
   return (
-    <div data-testid="top-section" style={{ marginBottom: 16 }}>
+    <div data-testid="top-section" style={{ marginBottom: 'var(--space-5)' }}>
       <div
         style={{
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: 600,
-          color: 'var(--text-muted)',
+          color: 'var(--text-faint)',
           textTransform: 'uppercase',
-          letterSpacing: 1,
-          marginBottom: 8,
+          letterSpacing: '0.08em',
+          marginBottom: 'var(--space-3)',
+          paddingLeft: 'var(--space-1)',
         }}
       >
         자주 쓰는 것
@@ -56,8 +57,8 @@ export function TopSection(): JSX.Element {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
-          gap: 8,
+          gridTemplateColumns: 'repeat(auto-fill, minmax(108px, 1fr))',
+          gap: 'var(--space-2)',
         }}
       >
         {topItems.map(({ link }) => (
@@ -71,32 +72,49 @@ export function TopSection(): JSX.Element {
               e.preventDefault()
               window.open(link.url, '_blank')
             }}
+            title={link.name}
             style={{
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: 4,
-              padding: '10px 8px',
-              borderRadius: 8,
+              justifyContent: 'center',
+              gap: 'var(--space-2)',
+              padding: 'var(--space-3) var(--space-2)',
+              borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border)',
-              background: 'var(--link-bg)',
+              background: 'var(--surface-1)',
               textDecoration: 'none',
-              color: 'var(--text-primary)',
+              color: 'var(--text-secondary)',
               cursor: 'pointer',
-              transition: 'background 0.15s',
+              transition:
+                'background var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out), border-color var(--motion-fast)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--surface-2)'
+              e.currentTarget.style.color = 'var(--text-primary)'
+              e.currentTarget.style.borderColor = 'var(--border-strong)'
+              e.currentTarget.style.transform = 'translateY(-1px)'
+              e.currentTarget.style.boxShadow = 'var(--shadow-sm)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'var(--surface-1)'
+              e.currentTarget.style.color = 'var(--text-secondary)'
+              e.currentTarget.style.borderColor = 'var(--border)'
+              e.currentTarget.style.transform = 'none'
+              e.currentTarget.style.boxShadow = 'none'
             }}
           >
             <Favicon url={link.url} size={24} />
             <span
               style={{
                 fontSize: 11,
+                fontWeight: 500,
                 textAlign: 'center',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
                 maxWidth: '100%',
               }}
-              title={link.name}
             >
               {link.name}
             </span>

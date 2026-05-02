@@ -51,4 +51,22 @@ describe('BookmarkList (SPEC-UX-003)', () => {
     expect(screen.getByText('Link 2')).toBeInTheDocument()
     expect(screen.getByText('Link 3')).toBeInTheDocument()
   })
+
+  it('viewMode=grid이면 컨테이너에 grid 레이아웃이 적용된다', async () => {
+    const { BookmarkList } = await import('./BookmarkList')
+    render(<BookmarkList links={testLinks.slice(0, 3)} density="comfortable" viewMode="grid" />)
+
+    const container = screen.getByTestId('bookmark-list')
+    expect(container).toHaveAttribute('data-view-mode', 'grid')
+    expect(container.style.display).toBe('grid')
+  })
+
+  it('viewMode=list이면 컨테이너에 grid 레이아웃이 적용되지 않는다', async () => {
+    const { BookmarkList } = await import('./BookmarkList')
+    render(<BookmarkList links={testLinks.slice(0, 3)} density="comfortable" viewMode="list" />)
+
+    const container = screen.getByTestId('bookmark-list')
+    expect(container).toHaveAttribute('data-view-mode', 'list')
+    expect(container.style.display).not.toBe('grid')
+  })
 })

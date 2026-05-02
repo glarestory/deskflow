@@ -1,6 +1,7 @@
 // @MX:NOTE: [AUTO] SearchInput — debounce 100ms로 viewStore.searchQuery를 갱신하는 입력 컴포넌트
 // @MX:SPEC: SPEC-UX-003
 import { useEffect, useRef, useState } from 'react'
+import { Search } from 'lucide-react'
 import { useViewStore } from '../../stores/viewStore'
 
 interface SearchInputProps {
@@ -35,26 +36,51 @@ export function SearchInput({ inputRef }: SearchInputProps): JSX.Element {
   }
 
   return (
-    <input
-      ref={inputRef as React.RefObject<HTMLInputElement>}
-      data-testid="search-input"
-      type="search"
-      value={localValue}
-      onChange={handleChange}
-      placeholder="북마크 검색..."
-      aria-label="북마크 검색"
-      style={{
-        width: '100%',
-        padding: '8px 12px',
-        borderRadius: 8,
-        border: '1px solid var(--border)',
-        background: 'var(--link-bg)',
-        color: 'var(--text-primary)',
-        fontSize: 13,
-        outline: 'none',
-        boxSizing: 'border-box',
-      }}
-    />
+    <div style={{ position: 'relative', width: '100%' }}>
+      <Search
+        size={14}
+        strokeWidth={2}
+        style={{
+          position: 'absolute',
+          left: 'var(--space-3)',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          color: 'var(--text-faint)',
+          pointerEvents: 'none',
+        }}
+      />
+      <input
+        ref={inputRef as React.RefObject<HTMLInputElement>}
+        data-testid="search-input"
+        type="search"
+        value={localValue}
+        onChange={handleChange}
+        placeholder="북마크 검색..."
+        aria-label="북마크 검색"
+        style={{
+          width: '100%',
+          height: 32,
+          padding: '0 var(--space-3) 0 32px',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border)',
+          background: 'var(--surface-1)',
+          color: 'var(--text-primary)',
+          fontSize: 13,
+          fontFamily: 'inherit',
+          outline: 'none',
+          boxSizing: 'border-box',
+          transition: 'border-color var(--motion-fast), background var(--motion-fast)',
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.borderColor = 'var(--accent)'
+          e.currentTarget.style.background = 'var(--surface-2)'
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.borderColor = 'var(--border)'
+          e.currentTarget.style.background = 'var(--surface-1)'
+        }}
+      />
+    </div>
   )
 }
 

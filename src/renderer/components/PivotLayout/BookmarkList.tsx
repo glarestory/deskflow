@@ -21,7 +21,14 @@ interface BookmarkListProps {
  * @MX:NOTE: [AUTO] 가상화(react-window)는 사용자 요청으로 제거.
  * 1000개+ 데이터에서 성능이 문제가 되면 추후 가상화 재도입 검토.
  */
-export function BookmarkList({ links, density }: BookmarkListProps): JSX.Element {
+/** 격자 모드에서 밀도별 카드 최소 너비 (px) */
+const GRID_MIN_WIDTH: Record<Density, number> = {
+  compact: 180,
+  comfortable: 220,
+  spacious: 260,
+}
+
+export function BookmarkList({ links, density, viewMode }: BookmarkListProps): JSX.Element {
   // 빈 상태 처리 (REQ-011, AC-012)
   if (links.length === 0) {
     return (
@@ -45,20 +52,32 @@ export function BookmarkList({ links, density }: BookmarkListProps): JSX.Element
   }
 
   const itemSize = DENSITY_ITEM_SIZE[density]
+  const isGrid = viewMode === 'grid'
+  const containerStyle: React.CSSProperties = isGrid
+    ? {
+        display: 'grid',
+        gridTemplateColumns: `repeat(auto-fill, minmax(${GRID_MIN_WIDTH[density]}px, 1fr))`,
+        gap: 'var(--space-3)',
+        padding: 'var(--space-2)',
+      }
+    : {}
 
   return (
     <div
-      role="listbox"
+      role={isGrid ? 'grid' : 'listbox'}
       aria-label="북마크 목록"
       data-testid="bookmark-list"
       data-item-count={links.length}
+      data-view-mode={viewMode}
+      style={containerStyle}
     >
       {links.map((link, index) => (
         <BookmarkRow
           key={link.id}
           link={link}
           index={index}
-          style={{ height: itemSize }}
+          viewMode={viewMode}
+          style={isGrid ? { width: '100%' } : { height: itemSize }}
         />
       ))}
     </div>

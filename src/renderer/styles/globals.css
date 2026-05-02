@@ -102,18 +102,122 @@ body {
   min-height: 100%;
 }
 
-/* Root CSS Variables (dark theme defaults) */
+/* Root CSS Variables — Linear-inspired dark-first design tokens
+ * Tone: cool neutrals + single indigo accent (Linear/Raycast hybrid)
+ * Color space: OKLCH for perceptual uniformity (P3-aware)
+ * Light theme tokens prepared but not auto-applied (see [data-theme="light"])
+ */
 :root {
-  --bg: #0f1117;
-  --bg-pattern: #161822;
-  --card-bg: #1a1d2b;
-  --border: #2a2d3d;
-  --text-primary: #e4e6f0;
-  --text-muted: #6b7094;
-  --link-bg: #22253a;
-  --link-hover: #2c3050;
-  --accent: #6366f1;
-  --shadow: rgba(0, 0, 0, 0.25);
+  /* === Surface (가장 어두움 → 가장 밝음) === */
+  --bg: oklch(16% 0.012 260);              /* canvas */
+  --bg-pattern: oklch(18% 0.014 260);      /* secondary canvas */
+  --surface-1: oklch(20% 0.014 260);       /* sidebar, cards */
+  --surface-2: oklch(23% 0.016 260);       /* hover state, elevated card */
+  --surface-3: oklch(27% 0.018 260);       /* pressed, active row bg */
+  --card-bg: var(--surface-1);
+  --link-bg: var(--surface-2);
+  --link-hover: var(--surface-2);
+  --link-active: var(--surface-3);
+
+  /* === Border === */
+  --border: oklch(28% 0.014 260);          /* default 1px line */
+  --border-strong: oklch(36% 0.018 260);   /* focus ring inner */
+  --border-subtle: oklch(24% 0.012 260);   /* row separator */
+
+  /* === Text (4-step scale) === */
+  --text-primary: oklch(96% 0.005 260);    /* primary content */
+  --text-secondary: oklch(78% 0.010 260);  /* secondary labels */
+  --text-muted: oklch(58% 0.012 260);      /* meta, hints */
+  --text-faint: oklch(44% 0.012 260);      /* disabled, dividers in text */
+
+  /* === Accent (Linear indigo) === */
+  --accent: oklch(64% 0.18 270);
+  --accent-hover: oklch(70% 0.18 270);
+  --accent-soft: oklch(64% 0.18 270 / 0.12);
+  --accent-fg: oklch(98% 0.005 260);
+
+  /* === Semantic === */
+  --success: oklch(68% 0.16 155);
+  --warning: oklch(78% 0.16 80);
+  --danger:  oklch(64% 0.20 25);
+  --favorite: oklch(80% 0.16 75);          /* star color */
+
+  /* === Spacing scale (4px base) === */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* === Radius === */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  /* === Shadow (subtle, layered) === */
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --shadow-focus: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+
+  /* === Motion === */
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-slow: 280ms;
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* === Typography === */
+  --font-sans: 'Inter', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* === Z-index === */
+  --z-sticky: 10;
+  --z-overlay: 100;
+  --z-modal: 1000;
+  --z-toast: 1100;
+}
+
+/* Light theme tokens (apply via [data-theme="light"] when ready) */
+[data-theme="light"] {
+  --bg: oklch(99% 0.003 260);
+  --bg-pattern: oklch(97% 0.004 260);
+  --surface-1: oklch(100% 0 0);
+  --surface-2: oklch(96% 0.006 260);
+  --surface-3: oklch(93% 0.008 260);
+  --card-bg: var(--surface-1);
+  --link-bg: var(--surface-2);
+  --link-hover: var(--surface-2);
+  --link-active: var(--surface-3);
+  --border: oklch(90% 0.006 260);
+  --border-strong: oklch(80% 0.010 260);
+  --border-subtle: oklch(94% 0.005 260);
+  --text-primary: oklch(20% 0.010 260);
+  --text-secondary: oklch(38% 0.012 260);
+  --text-muted: oklch(54% 0.012 260);
+  --text-faint: oklch(70% 0.010 260);
+  --accent: oklch(54% 0.20 270);
+  --accent-hover: oklch(48% 0.20 270);
+  --accent-soft: oklch(54% 0.20 270 / 0.10);
+  --shadow: 0 1px 2px rgba(15, 17, 23, 0.06);
+  --shadow-sm: 0 1px 2px rgba(15, 17, 23, 0.08);
+  --shadow-md: 0 4px 12px rgba(15, 17, 23, 0.10);
+  --shadow-lg: 0 12px 32px rgba(15, 17, 23, 0.14);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Scrollbar styles — SPEC-LAYOUT-002 Step 3
@@ -158,8 +262,43 @@ textarea::-webkit-scrollbar {
 }
 
 body {
-  font-family: 'Inter', 'Noto Sans KR', sans-serif;
+  font-family: var(--font-sans);
   background: var(--bg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Focus ring — keyboard navigation only (mouse 클릭 시 표시 X) */
+*:focus {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+button:focus-visible,
+[role="button"]:focus-visible,
+[role="treeitem"]:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Text selection */
+::selection {
+  background: var(--accent-soft);
   color: var(--text-primary);
 }
 

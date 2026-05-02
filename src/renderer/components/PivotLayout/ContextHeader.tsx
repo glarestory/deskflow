@@ -1,4 +1,6 @@
 // @MX:SPEC: SPEC-UX-003
+import { LayoutList, Star, Folder, Hash, X } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useViewStore } from '../../stores/viewStore'
 import { useBookmarkStore } from '../../stores/bookmarkStore'
 import type { SidebarContext } from '../../stores/viewStore'
@@ -12,6 +14,9 @@ export function ContextHeader(): JSX.Element {
   const bookmarks = useBookmarkStore((s) => s.bookmarks)
 
   const label = getContextLabel(context, bookmarks)
+  const Icon = getContextIcon(context)
+  const iconColor =
+    context.kind === 'favorites' ? 'var(--favorite)' : context.kind === 'all' ? 'var(--text-secondary)' : 'var(--accent)'
 
   return (
     <div
@@ -19,18 +24,19 @@ export function ContextHeader(): JSX.Element {
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 8,
-        padding: '0 0 8px 0',
-        borderBottom: '1px solid var(--border)',
-        marginBottom: 8,
+        gap: 'var(--space-3)',
+        padding: '0 0 var(--space-3) 0',
+        borderBottom: '1px solid var(--border-subtle)',
+        marginBottom: 'var(--space-3)',
       }}
     >
-      <span style={{ fontSize: 18 }}>{getContextIcon(context)}</span>
+      <Icon size={18} strokeWidth={2} style={{ color: iconColor, flexShrink: 0 }} fill={context.kind === 'favorites' ? 'currentColor' : 'none'} />
       <span
         style={{
-          fontSize: 16,
-          fontWeight: 600,
+          fontSize: 17,
+          fontWeight: 700,
           color: 'var(--text-primary)',
+          letterSpacing: '-0.015em',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
@@ -45,30 +51,43 @@ export function ContextHeader(): JSX.Element {
           data-testid="context-clear"
           onClick={() => setContext({ kind: 'all' })}
           title="전체로 돌아가기"
+          aria-label="필터 초기화"
           style={{
             marginLeft: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 24,
+            height: 24,
             border: 'none',
             background: 'transparent',
             color: 'var(--text-muted)',
             cursor: 'pointer',
-            fontSize: 12,
-            padding: '2px 6px',
-            borderRadius: 4,
+            borderRadius: 'var(--radius-sm)',
+            transition: 'background var(--motion-fast), color var(--motion-fast)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--surface-2)'
+            e.currentTarget.style.color = 'var(--text-primary)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = 'var(--text-muted)'
           }}
         >
-          ✕
+          <X size={14} strokeWidth={2} />
         </button>
       )}
     </div>
   )
 }
 
-function getContextIcon(context: SidebarContext): string {
+function getContextIcon(context: SidebarContext): LucideIcon {
   switch (context.kind) {
-    case 'all': return '📋'
-    case 'favorites': return '⭐'
-    case 'category': return '📂'
-    case 'tag': return '🏷'
+    case 'all': return LayoutList
+    case 'favorites': return Star
+    case 'category': return Folder
+    case 'tag': return Hash
   }
 }
 

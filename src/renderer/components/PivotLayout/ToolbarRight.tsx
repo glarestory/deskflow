@@ -1,4 +1,5 @@
 // @MX:SPEC: SPEC-UX-003
+import { LayoutGrid, List } from 'lucide-react'
 import { useViewStore } from '../../stores/viewStore'
 import type { Density } from '../../stores/viewStore'
 
@@ -46,21 +47,32 @@ export function ToolbarRight({ sort = 'name', onSortChange }: ToolbarRightProps)
         data-testid="view-mode-toggle"
         onClick={handleViewModeToggle}
         title={viewMode === 'list' ? '격자 보기로 전환' : '목록 보기로 전환'}
+        aria-label={viewMode === 'list' ? '격자 보기로 전환' : '목록 보기로 전환'}
         style={{
-          width: 32,
-          height: 32,
-          borderRadius: 6,
+          width: 30,
+          height: 30,
+          borderRadius: 'var(--radius-sm)',
           border: '1px solid var(--border)',
-          background: 'var(--card-bg)',
+          background: 'var(--surface-1)',
           cursor: 'pointer',
-          fontSize: 14,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'var(--text-primary)',
+          color: 'var(--text-secondary)',
+          transition: 'background var(--motion-fast), color var(--motion-fast), border-color var(--motion-fast)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'var(--surface-2)'
+          e.currentTarget.style.color = 'var(--text-primary)'
+          e.currentTarget.style.borderColor = 'var(--border-strong)'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'var(--surface-1)'
+          e.currentTarget.style.color = 'var(--text-secondary)'
+          e.currentTarget.style.borderColor = 'var(--border)'
         }}
       >
-        {viewMode === 'list' ? '⊞' : '☰'}
+        {viewMode === 'list' ? <LayoutGrid size={15} strokeWidth={2} /> : <List size={15} strokeWidth={2} />}
       </button>
 
       {/* 밀도 선택 */}
@@ -70,13 +82,15 @@ export function ToolbarRight({ sort = 'name', onSortChange }: ToolbarRightProps)
         onChange={handleDensityChange}
         aria-label="밀도 선택"
         style={{
-          padding: '4px 8px',
-          borderRadius: 6,
+          height: 30,
+          padding: '0 var(--space-2)',
+          borderRadius: 'var(--radius-sm)',
           border: '1px solid var(--border)',
-          background: 'var(--card-bg)',
-          color: 'var(--text-primary)',
+          background: 'var(--surface-1)',
+          color: 'var(--text-secondary)',
           fontSize: 12,
           cursor: 'pointer',
+          fontFamily: 'inherit',
         }}
       >
         <option value={'compact' satisfies Density}>조밀</option>
@@ -91,13 +105,15 @@ export function ToolbarRight({ sort = 'name', onSortChange }: ToolbarRightProps)
         onChange={handleSortChange}
         aria-label="정렬 기준"
         style={{
-          padding: '4px 8px',
-          borderRadius: 6,
+          height: 30,
+          padding: '0 var(--space-2)',
+          borderRadius: 'var(--radius-sm)',
           border: '1px solid var(--border)',
-          background: 'var(--card-bg)',
-          color: 'var(--text-primary)',
+          background: 'var(--surface-1)',
+          color: 'var(--text-secondary)',
           fontSize: 12,
           cursor: 'pointer',
+          fontFamily: 'inherit',
         }}
       >
         <option value={'name' satisfies SortOption}>이름순</option>
