@@ -1,11 +1,13 @@
 // @MX:NOTE: [AUTO] EditModal — 카테고리 및 링크 편집 모달, 저장/삭제/닫기 콜백
-// @MX:SPEC: SPEC-UI-001, SPEC-BOOKMARK-003
-import { useState } from 'react'
+// @MX:SPEC: SPEC-UI-001, SPEC-BOOKMARK-003, SPEC-A11Y-MODAL-001
+import { useRef, useState } from 'react'
 import type { Category, Link } from '../../types'
 import TagInput from '../TagInput/TagInput'
 import { useTagStore } from '../../stores/tagStore'
+import { useModalA11y } from '../../hooks/useModalA11y'
 
 const uid = () => Math.random().toString(36).slice(2, 9)
+const TITLE_ID = 'edit-modal-title'
 
 interface EditModalProps {
   category: Category
@@ -23,6 +25,10 @@ export default function EditModal({
   const [cat, setCat] = useState<Category>(JSON.parse(JSON.stringify(category)) as Category)
   const allTags = useTagStore((s) => s.allTags)
   const tagSuggestions = allTags.map((t) => t.tag)
+  const dialogRef = useRef<HTMLDivElement>(null)
+
+  // SPEC-A11Y-MODAL-001: Escape 닫기 + focus trap + 자동 포커스 + focus return
+  useModalA11y({ isOpen: true, onClose, containerRef: dialogRef })
 
   const updateLink = (idx: number, field: keyof Link, val: string) => {
     const links = [...cat.links]
@@ -67,6 +73,10 @@ export default function EditModal({
       onClick={handleOverlayClick}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={TITLE_ID}
         style={{
           background: 'var(--card-bg)',
           borderRadius: 20,
@@ -80,6 +90,7 @@ export default function EditModal({
         }}
       >
         <h3
+          id={TITLE_ID}
           style={{
             fontSize: 18,
             fontWeight: 700,
