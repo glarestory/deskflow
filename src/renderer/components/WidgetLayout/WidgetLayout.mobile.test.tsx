@@ -68,6 +68,21 @@ vi.mock('react-grid-layout/legacy', () => {
   return { default: MockGridLayout, Responsive: MockGridLayout, WidthProvider }
 })
 
+// SPEC-UX-007: editModeStore 모킹 — 편집 모드 제어
+let mockIsEditing = false
+vi.mock('../../stores/editModeStore', () => ({
+  useEditMode: () => ({
+    isEditing: mockIsEditing,
+    toggle: vi.fn(),
+    set: vi.fn(),
+  }),
+  useEditModeStore: () => ({
+    isEditing: mockIsEditing,
+    toggle: vi.fn(),
+    set: vi.fn(),
+  }),
+}))
+
 // 스토어 모킹 (기존 WidgetLayout.test.tsx 와 동일 패턴)
 vi.mock('../../stores/bookmarkStore', () => ({
   useBookmarkStore: () => ({
@@ -160,11 +175,24 @@ describe('WidgetLayout (SPEC-MOBILE-RESPONSIVE-001)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     currentMatches = false
+    mockIsEditing = false
     setupMatchMedia()
   })
 
-  it('데스크톱(>640px) 에서 isDraggable=true, isResizable=true (Responsive 그리드)', () => {
+  // SPEC-UX-007: 편집 모드 OFF 시 데스크톱에서도 isDraggable=false (REQ-UX-007-017)
+  it('데스크톱(>640px) 편집 모드 OFF 에서 isDraggable=false, isResizable=false', () => {
     currentMatches = false
+    mockIsEditing = false
+    render(<WidgetLayout {...defaultProps} />)
+    const grid = screen.getByTestId('react-grid-layout')
+    expect(grid).toHaveAttribute('data-is-draggable', 'false')
+    expect(grid).toHaveAttribute('data-is-resizable', 'false')
+  })
+
+  // SPEC-UX-007: 편집 모드 ON + 데스크톱에서 isDraggable=true (REQ-UX-007-017)
+  it('데스크톱(>640px) 편집 모드 ON 에서 isDraggable=true, isResizable=true', () => {
+    currentMatches = false
+    mockIsEditing = true
     render(<WidgetLayout {...defaultProps} />)
     const grid = screen.getByTestId('react-grid-layout')
     expect(grid).toHaveAttribute('data-is-draggable', 'true')

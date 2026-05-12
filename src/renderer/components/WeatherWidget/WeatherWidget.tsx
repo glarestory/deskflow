@@ -245,10 +245,11 @@ function WeatherInfo({
         gap: 8,
       }}
     >
-      {/* 도시명 */}
+      {/* 도시명 — REQ-UX-007-010: widget-drag-handle 추가 */}
       {city !== null && (
         <div
           data-testid="weather-city"
+          className="widget-drag-handle"
           style={{
             fontSize: 14,
             color: 'var(--text-muted)',

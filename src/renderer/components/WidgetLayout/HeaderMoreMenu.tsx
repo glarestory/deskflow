@@ -17,6 +17,10 @@ export interface HeaderMoreMenuProps {
   onTogglePivotMode: () => void
   /** 로그아웃 */
   signOut: () => void
+  /** REQ-UX-007-003: 현재 편집 모드 상태 */
+  isEditing: boolean
+  /** REQ-UX-007-003: 편집 모드 토글 핸들러 */
+  onToggleEdit: () => void
 }
 
 /**
@@ -30,6 +34,8 @@ export default function HeaderMoreMenu({
   resetLayout,
   onTogglePivotMode,
   signOut,
+  isEditing,
+  onToggleEdit,
 }: HeaderMoreMenuProps): JSX.Element {
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -98,6 +104,14 @@ export default function HeaderMoreMenu({
             minWidth: 160,
           }}
         >
+          {/* REQ-UX-007-003: 편집 모드 토글 — 메뉴 최상단에 배치 */}
+          <button
+            data-testid="more-edit-toggle"
+            style={menuItemStyle}
+            onClick={() => { onToggleEdit(); close() }}
+          >
+            {isEditing ? '완료' : '편집'}
+          </button>
           <button
             data-testid="more-add-category"
             style={menuItemStyle}

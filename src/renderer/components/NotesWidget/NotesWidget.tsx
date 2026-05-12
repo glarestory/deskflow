@@ -40,7 +40,9 @@ export default function NotesWidget(): JSX.Element {
         border: '1px solid var(--border)',
       }}
     >
+      {/* REQ-UX-007-010: widget-drag-handle 추가 */}
       <div
+        className="widget-drag-handle"
         style={{
           fontWeight: 700,
           fontSize: 15,

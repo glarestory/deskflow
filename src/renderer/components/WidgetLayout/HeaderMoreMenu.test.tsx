@@ -4,7 +4,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import HeaderMoreMenu from './HeaderMoreMenu'
 
-const makeProps = () => ({
+const makeProps = (isEditing = false) => ({
   handleAddCategory: vi.fn(),
   onOpenImport: vi.fn(),
   onOpenDedup: vi.fn(),
@@ -12,6 +12,9 @@ const makeProps = () => ({
   resetLayout: vi.fn(),
   signOut: vi.fn(),
   exportBookmarks: vi.fn(),
+  // SPEC-UX-007 M3: 편집 모드 토글 props
+  isEditing,
+  onToggleEdit: vi.fn(),
 })
 
 describe('HeaderMoreMenu (REQ-UX-006-012)', () => {
@@ -21,7 +24,7 @@ describe('HeaderMoreMenu (REQ-UX-006-012)', () => {
 
   // AC-012: More 버튼이 렌더링되어야 한다
   it('More(⋯) 버튼이 렌더링된다', () => {
-    render(<HeaderMoreMenu {...makeProps()} />)
+    render(<HeaderMoreMenu {...makeProps(false)} />)
     expect(screen.getByTestId('more-menu-btn')).toBeInTheDocument()
   })
 
@@ -110,11 +113,38 @@ describe('HeaderMoreMenu (REQ-UX-006-012)', () => {
 
   // 메뉴 항목 클릭 후 메뉴가 닫힌다
   it('메뉴 항목 클릭 후 메뉴가 닫힌다', () => {
-    const props = makeProps()
+    const props = makeProps(false)
     render(<HeaderMoreMenu {...props} />)
     fireEvent.click(screen.getByTestId('more-menu-btn'))
     expect(screen.getByTestId('more-menu-list')).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('more-add-category'))
     expect(screen.queryByTestId('more-menu-list')).not.toBeInTheDocument()
+  })
+
+  // SPEC-UX-007 M3: 편집 토글 항목 (AC-004)
+  it('메뉴 열림 시 more-edit-toggle 항목이 존재해야 한다 (AC-004)', () => {
+    render(<HeaderMoreMenu {...makeProps(false)} />)
+    fireEvent.click(screen.getByTestId('more-menu-btn'))
+    expect(screen.getByTestId('more-edit-toggle')).toBeInTheDocument()
+  })
+
+  it('isEditing=false일 때 편집 토글 항목 라벨이 "편집"이어야 한다 (AC-004)', () => {
+    render(<HeaderMoreMenu {...makeProps(false)} />)
+    fireEvent.click(screen.getByTestId('more-menu-btn'))
+    expect(screen.getByTestId('more-edit-toggle')).toHaveTextContent('편집')
+  })
+
+  it('isEditing=true일 때 편집 토글 항목 라벨이 "완료"이어야 한다 (AC-004)', () => {
+    render(<HeaderMoreMenu {...makeProps(true)} />)
+    fireEvent.click(screen.getByTestId('more-menu-btn'))
+    expect(screen.getByTestId('more-edit-toggle')).toHaveTextContent('완료')
+  })
+
+  it('편집 토글 클릭 시 onToggleEdit이 호출되어야 한다 (AC-007)', () => {
+    const props = makeProps(false)
+    render(<HeaderMoreMenu {...props} />)
+    fireEvent.click(screen.getByTestId('more-menu-btn'))
+    fireEvent.click(screen.getByTestId('more-edit-toggle'))
+    expect(props.onToggleEdit).toHaveBeenCalledOnce()
   })
 })

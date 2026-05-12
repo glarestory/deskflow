@@ -229,11 +229,22 @@ body {
   --shadow-lg: 0 12px 32px rgba(15, 17, 23, 0.14);
 }
 
+/* 편집 모드 시각 신호 — SPEC-UX-007 REQ-UX-007-020
+ * body.is-edit-mode 클래스가 있을 때 react-grid-item에 점선 외곽선 표시 */
+body.is-edit-mode .react-grid-item {
+  outline: 2px dashed var(--accent);
+  outline-offset: 4px;
+  transition: outline-color 0.15s ease-out;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+  body.is-edit-mode .react-grid-item {
+    transition: none;
   }
 }
 
