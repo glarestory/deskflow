@@ -3,18 +3,24 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
-// react-grid-layout 모킹
+// react-grid-layout 모킹 — Responsive 컴포넌트 노출 포함 (SPEC-UX-006)
 vi.mock('react-grid-layout', () => {
   const MockGridLayout = ({ children }: { children: React.ReactNode }) => (
     <div data-testid="react-grid-layout">{children}</div>
   )
   MockGridLayout.displayName = 'MockGridLayout'
-  return { default: MockGridLayout }
+  const WidthProvider = <P extends object>(Component: React.ComponentType<P>) => Component
+  return { default: MockGridLayout, Responsive: MockGridLayout, WidthProvider }
 })
 
+// react-grid-layout/legacy 모킹 — WidthProvider 를 실제 사용하는 경로
 vi.mock('react-grid-layout/legacy', () => {
+  const MockGridLayout = ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="react-grid-layout">{children}</div>
+  )
+  MockGridLayout.displayName = 'MockGridLayout'
   const WidthProvider = <P extends object>(Component: React.ComponentType<P>) => Component
-  return { WidthProvider }
+  return { default: MockGridLayout, Responsive: MockGridLayout, WidthProvider }
 })
 
 // 스토어 모킹
@@ -103,6 +109,10 @@ vi.mock('../FeedWidget/FeedWidget', () => ({
   default: () => <div>FeedWidget</div>,
 }))
 
+vi.mock('../CapsuleSwitcher/CapsuleSwitcher', () => ({
+  default: () => <div data-testid="capsule-switcher" />,
+}))
+
 describe('WidgetLayout (SPEC-UX-005)', () => {
   const mockHandlers = {
     handleAddCategory: vi.fn(),
@@ -112,6 +122,8 @@ describe('WidgetLayout (SPEC-UX-005)', () => {
     onOpenDedup: vi.fn(),
     onSetEditingCategory: vi.fn(),
     onTogglePivotMode: vi.fn(),
+    onOpenCapsuleList: vi.fn(),
+    onOpenCreateCapsule: vi.fn(),
   }
 
   beforeEach(() => {
