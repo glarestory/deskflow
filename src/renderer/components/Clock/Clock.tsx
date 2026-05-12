@@ -54,7 +54,7 @@ export default function Clock(): JSX.Element {
       <div
         style={{
           fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 48,
+          fontSize: 'clamp(2rem, 8vw, 5rem)',
           fontWeight: 700,
           letterSpacing: -2,
           color: 'var(--text-primary)',

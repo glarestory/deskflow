@@ -44,11 +44,18 @@
   user-select: none;
 }
 
-/* 리사이즈 핸들 스타일 */
+/* REQ-UX-006-015: 리사이즈 핸들 기본 14px, 터치 환경 24px */
 .react-grid-item > .react-resizable-handle {
   position: absolute;
-  width: 20px;
-  height: 20px;
+  width: 14px;
+  height: 14px;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .react-grid-item > .react-resizable-handle {
+    width: 24px;
+    height: 24px;
+  }
 }
 
 .react-grid-item > .react-resizable-handle::after {
@@ -69,13 +76,23 @@
   cursor: se-resize;
 }
 
-/* 위젯 드래그 핸들 스타일 */
+/* REQ-UX-006-005: 위젯 드래그 핸들 — 모바일 터치 호환 */
 .widget-drag-handle {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
   cursor: grab;
+  min-height: 44px;
 }
 
 .widget-drag-handle:active {
   cursor: grabbing;
+}
+
+/* REQ-UX-006-007: 드래그 중 body 스크롤 격리 */
+body.is-dragging-widget {
+  overflow: hidden;
+  overscroll-behavior: contain;
 }
 
 /* CSS Reset */
