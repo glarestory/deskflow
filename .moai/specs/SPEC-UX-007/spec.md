@@ -1,7 +1,7 @@
 ---
 id: SPEC-UX-007
 version: 1.0.0
-status: draft
+status: completed
 created: 2026-05-12
 updated: 2026-05-12
 author: ZeroJuneK
