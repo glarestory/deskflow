@@ -215,6 +215,146 @@ describe('bookmarkStore', () => {
     expect(devCount).toBe(1) // 중복 없이 단일 dev
   })
 
+  // SPEC-UX-008: moveLinkBetweenGroups API (REQ-UX-008-008)
+  describe('moveLinkBetweenGroups', () => {
+    // 각 테스트에서 공통으로 사용할 초기 상태 설정 헬퍼
+    async function setupStore(
+      cat1Links = [
+        { id: 'l1', name: 'Gmail', url: 'https://mail.google.com', tags: ['email'], favorite: true },
+        { id: 'l2', name: 'Drive', url: 'https://drive.google.com', tags: ['docs'] },
+      ],
+      cat2Links = [
+        { id: 'l5', name: 'GitHub', url: 'https://github.com', tags: ['dev'] },
+        { id: 'l6', name: 'Stack Overflow', url: 'https://stackoverflow.com', tags: ['dev'] },
+      ],
+    ) {
+      mockGet.mockResolvedValue({ value: null })
+      const { useBookmarkStore } = await import('./bookmarkStore')
+      useBookmarkStore.setState({
+        bookmarks: [
+          { id: 'cat-1', name: 'Work', icon: '💼', links: cat1Links },
+          { id: 'cat-2', name: 'Dev', icon: '⚡', links: cat2Links },
+        ],
+        loaded: true,
+      })
+      return useBookmarkStore
+    }
+
+    // T-003-a: 카테고리 A의 링크를 카테고리 B의 인덱스 0으로 이동 (AC-001)
+    it('다른 카테고리 인덱스 0으로 이동한다 (AC-001)', async () => {
+      const store = await setupStore()
+      store.getState().moveLinkBetweenGroups('l1', 'cat-1', 'cat-2', 0)
+
+      const state = store.getState()
+      const cat1 = state.bookmarks.find((b) => b.id === 'cat-1')
+      const cat2 = state.bookmarks.find((b) => b.id === 'cat-2')
+
+      // cat-1에서 l1 제거됨
+      expect(cat1?.links.map((l) => l.id)).toEqual(['l2'])
+      // cat-2에 l1이 인덱스 0에 삽입됨
+      expect(cat2?.links.map((l) => l.id)).toEqual(['l1', 'l5', 'l6'])
+      // storage.set 1회 호출 (REQ-UX-008-013)
+      expect(mockSet).toHaveBeenCalledOnce()
+    })
+
+    // T-003-b: 중간 인덱스로 이동 (AC-002)
+    it('카테고리 B의 중간 인덱스로 이동한다 (AC-002)', async () => {
+      const store = await setupStore(
+        [{ id: 'l1', name: 'Gmail', url: 'https://mail.google.com', tags: [] }],
+        [
+          { id: 'l5', name: 'GitHub', url: 'https://github.com', tags: [] },
+          { id: 'l6', name: 'SO', url: 'https://stackoverflow.com', tags: [] },
+          { id: 'l7', name: 'CodePen', url: 'https://codepen.io', tags: [] },
+          { id: 'l8', name: 'MDN', url: 'https://developer.mozilla.org', tags: [] },
+        ],
+      )
+      store.getState().moveLinkBetweenGroups('l1', 'cat-1', 'cat-2', 2)
+
+      const cat2 = store.getState().bookmarks.find((b) => b.id === 'cat-2')
+      expect(cat2?.links.map((l) => l.id)).toEqual(['l5', 'l6', 'l1', 'l7', 'l8'])
+    })
+
+    // T-003-c: 끝 인덱스로 이동 (AC-002)
+    it('toIndex가 links.length와 같으면 끝에 삽입한다 (AC-002)', async () => {
+      const store = await setupStore()
+      store.getState().moveLinkBetweenGroups('l1', 'cat-1', 'cat-2', 2)
+
+      const cat2 = store.getState().bookmarks.find((b) => b.id === 'cat-2')
+      expect(cat2?.links.map((l) => l.id)).toEqual(['l5', 'l6', 'l1'])
+    })
+
+    // T-003-d: 빈 카테고리로 이동 (AC-003)
+    it('빈 카테고리로 이동한다 (AC-003)', async () => {
+      const store = await setupStore(
+        [{ id: 'l1', name: 'Gmail', url: 'https://mail.google.com', tags: [] }],
+        [], // 빈 cat-2
+      )
+      store.getState().moveLinkBetweenGroups('l1', 'cat-1', 'cat-2', 0)
+
+      const cat1 = store.getState().bookmarks.find((b) => b.id === 'cat-1')
+      const cat2 = store.getState().bookmarks.find((b) => b.id === 'cat-2')
+      expect(cat1?.links).toHaveLength(0)
+      expect(cat2?.links.map((l) => l.id)).toEqual(['l1'])
+    })
+
+    // T-003-e: fromCategoryId === toCategoryId → no-op (AC-004)
+    it('from === to이면 no-op이다 (AC-004)', async () => {
+      const store = await setupStore()
+      const before = store.getState().bookmarks
+      store.getState().moveLinkBetweenGroups('l1', 'cat-1', 'cat-1', 0)
+
+      expect(store.getState().bookmarks).toEqual(before)
+      expect(mockSet).not.toHaveBeenCalled()
+    })
+
+    // T-003-f: 부가 메타데이터 보존 (AC-001, AC-014)
+    it('favorite, tags 등 부가 메타데이터가 보존된다 (AC-014)', async () => {
+      const store = await setupStore()
+      store.getState().moveLinkBetweenGroups('l1', 'cat-1', 'cat-2', 0)
+
+      const cat2 = store.getState().bookmarks.find((b) => b.id === 'cat-2')
+      const movedLink = cat2?.links[0]
+      expect(movedLink?.id).toBe('l1')
+      expect(movedLink?.favorite).toBe(true)
+      expect(movedLink?.tags).toEqual(['email'])
+    })
+
+    // T-003-g: toIndex clamp 동작 (AC-002)
+    it('toIndex가 범위 초과이면 끝에, 음수이면 맨 앞에 삽입한다 (AC-002)', async () => {
+      const store1 = await setupStore()
+      store1.getState().moveLinkBetweenGroups('l1', 'cat-1', 'cat-2', 999)
+      const cat2a = store1.getState().bookmarks.find((b) => b.id === 'cat-2')
+      // 끝에 삽입
+      expect(cat2a?.links[cat2a.links.length - 1].id).toBe('l1')
+
+      // 음수 인덱스 테스트를 위해 별도 store 초기화
+      vi.resetModules()
+      vi.stubGlobal('storage', { get: mockGet, set: mockSet })
+      const store2 = await setupStore()
+      store2.getState().moveLinkBetweenGroups('l1', 'cat-1', 'cat-2', -5)
+      const cat2b = store2.getState().bookmarks.find((b) => b.id === 'cat-2')
+      // 맨 앞에 삽입
+      expect(cat2b?.links[0].id).toBe('l1')
+    })
+
+    // T-003-h: 존재하지 않는 linkId / categoryId → no-op (AC-004)
+    it('존재하지 않는 linkId 또는 categoryId이면 no-op이다 (AC-004)', async () => {
+      const store = await setupStore()
+      const before = JSON.stringify(store.getState().bookmarks)
+
+      store.getState().moveLinkBetweenGroups('non-existent', 'cat-1', 'cat-2', 0)
+      expect(JSON.stringify(store.getState().bookmarks)).toEqual(before)
+
+      store.getState().moveLinkBetweenGroups('l1', 'cat-1', 'non-existent-cat', 0)
+      expect(JSON.stringify(store.getState().bookmarks)).toEqual(before)
+
+      store.getState().moveLinkBetweenGroups('l1', 'non-existent-cat', 'cat-2', 0)
+      expect(JSON.stringify(store.getState().bookmarks)).toEqual(before)
+
+      expect(mockSet).not.toHaveBeenCalled()
+    })
+  })
+
   // SPEC-UX-007: reorderCategories API (REQ-UX-007-014, AC-014)
   describe('reorderCategories', () => {
     it('orderedIds 순서대로 bookmarks를 재정렬해야 한다 (AC-014)', async () => {
