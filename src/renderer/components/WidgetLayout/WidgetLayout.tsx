@@ -694,8 +694,36 @@ export default function WidgetLayout({
               border: '1px solid var(--border)',
               overflowX: 'hidden',
               overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
             }}
           >
+            {/* 즐겨찾기 위젯 타이틀 — react-grid-layout 전용 드래그 핸들 (BookmarkCard 카테고리 헤더와 분리)
+                widget-drag-handle 클래스는 위젯 타이틀에만 부여하여 내부 dnd-kit DnD와의 충돌 제거 */}
+            <div
+              className="widget-drag-handle"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '14px 20px 10px',
+                cursor: isEditing && !isMobile && !isMobileBreakpoint ? 'grab' : 'default',
+                userSelect: 'none',
+                borderBottom: '1px solid var(--border)',
+              }}
+            >
+              <span style={{ fontSize: 18 }}>⭐</span>
+              <span
+                style={{
+                  fontWeight: 700,
+                  fontSize: 15,
+                  color: 'var(--text-primary)',
+                  letterSpacing: -0.3,
+                }}
+              >
+                즐겨찾기
+              </span>
+            </div>
             {/* REQ-UX-008-011 D2: closestCorners — 빈 카테고리 포함 droppable 경계 인식 */}
             <DndContext
               sensors={categorySensors}
