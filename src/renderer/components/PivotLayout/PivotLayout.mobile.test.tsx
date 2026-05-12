@@ -107,12 +107,12 @@ describe('Sidebar (SPEC-MOBILE-RESPONSIVE-001)', () => {
     expect(btn.style.height).toBe('44px')
   })
 
-  it('데스크톱에서 sidebar-toggle 버튼은 28x28 유지 (회귀 방지)', () => {
+  it('데스크톱에서 sidebar-toggle 버튼은 26x26 유지 (디자인 토큰 정렬, commit 795503c)', () => {
     currentMatches = false
     render(<Sidebar />)
     const btn = screen.getByTestId('sidebar-toggle')
-    expect(btn.style.width).toBe('28px')
-    expect(btn.style.height).toBe('28px')
+    expect(btn.style.width).toBe('26px')
+    expect(btn.style.height).toBe('26px')
   })
 })
 

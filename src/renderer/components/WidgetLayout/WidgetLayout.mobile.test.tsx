@@ -3,10 +3,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
-// react-grid-layout 모킹 — props 검증을 위해 props 를 outerHTML 로 노출
+// react-grid-layout 모킹 — SPEC-UX-006: Responsive props 포함
 type GridLayoutProps = {
   children: React.ReactNode
-  cols?: number
+  cols?: Record<string, number> | number
+  layouts?: { lg?: Array<{ i: string }> }
   layout?: Array<{ i: string }>
   isDraggable?: boolean
   isResizable?: boolean
@@ -16,28 +17,55 @@ vi.mock('react-grid-layout', () => {
   const MockGridLayout = ({
     children,
     cols,
-    layout,
+    layouts,
     isDraggable,
     isResizable,
-  }: GridLayoutProps) => (
-    <div
-      data-testid="react-grid-layout"
-      data-cols={cols}
-      data-layout-items={layout?.map((l) => l.i).join(',')}
-      data-is-draggable={String(isDraggable)}
-      data-is-resizable={String(isResizable)}
-    >
-      {children}
-    </div>
-  )
+  }: GridLayoutProps & { layouts?: { lg?: Array<{ i: string }> } }) => {
+    const lgLayout = layouts?.lg
+    return (
+      <div
+        data-testid="react-grid-layout"
+        data-cols={cols}
+        data-layout-items={lgLayout?.map((l) => l.i).join(',')}
+        data-is-draggable={String(isDraggable)}
+        data-is-resizable={String(isResizable)}
+      >
+        {children}
+      </div>
+    )
+  }
   MockGridLayout.displayName = 'MockGridLayout'
-  return { default: MockGridLayout }
-})
-
-vi.mock('react-grid-layout/legacy', () => {
   const WidthProvider = <P extends object>(Component: React.ComponentType<P>) =>
     Component
-  return { WidthProvider }
+  return { default: MockGridLayout, Responsive: MockGridLayout, WidthProvider }
+})
+
+// react-grid-layout/legacy — WidthProvider 를 실제 사용하는 경로 모킹
+vi.mock('react-grid-layout/legacy', () => {
+  const MockGridLayout = ({
+    children,
+    cols,
+    layouts,
+    isDraggable,
+    isResizable,
+  }: GridLayoutProps & { layouts?: { lg?: Array<{ i: string }> } }) => {
+    const lgLayout = layouts?.lg
+    return (
+      <div
+        data-testid="react-grid-layout"
+        data-cols={cols}
+        data-layout-items={lgLayout?.map((l) => l.i).join(',')}
+        data-is-draggable={String(isDraggable)}
+        data-is-resizable={String(isResizable)}
+      >
+        {children}
+      </div>
+    )
+  }
+  MockGridLayout.displayName = 'MockGridLayout'
+  const WidthProvider = <P extends object>(Component: React.ComponentType<P>) =>
+    Component
+  return { default: MockGridLayout, Responsive: MockGridLayout, WidthProvider }
 })
 
 // 스토어 모킹 (기존 WidgetLayout.test.tsx 와 동일 패턴)
@@ -135,20 +163,18 @@ describe('WidgetLayout (SPEC-MOBILE-RESPONSIVE-001)', () => {
     setupMatchMedia()
   })
 
-  it('데스크톱(>640px) 에서 cols=12, isDraggable=true, isResizable=true', () => {
+  it('데스크톱(>640px) 에서 isDraggable=true, isResizable=true (Responsive 그리드)', () => {
     currentMatches = false
     render(<WidgetLayout {...defaultProps} />)
     const grid = screen.getByTestId('react-grid-layout')
-    expect(grid).toHaveAttribute('data-cols', '12')
     expect(grid).toHaveAttribute('data-is-draggable', 'true')
     expect(grid).toHaveAttribute('data-is-resizable', 'true')
   })
 
-  it('모바일(<=640px) 에서 cols=1, isDraggable=false, isResizable=false', () => {
+  it('모바일(<=640px) 에서 isDraggable=false, isResizable=false (REQ-UX-006-002)', () => {
     currentMatches = true
     render(<WidgetLayout {...defaultProps} />)
     const grid = screen.getByTestId('react-grid-layout')
-    expect(grid).toHaveAttribute('data-cols', '1')
     expect(grid).toHaveAttribute('data-is-draggable', 'false')
     expect(grid).toHaveAttribute('data-is-resizable', 'false')
   })

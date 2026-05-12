@@ -1,8 +1,9 @@
 // @MX:ANCHOR: [AUTO] layoutStore — 드래그 앤 드롭 위젯 레이아웃 상태 관리 진입점
 // @MX:REASON: [AUTO] App.tsx, 레이아웃 초기화 버튼 등 다수 컴포넌트가 의존
-// @MX:SPEC: SPEC-LAYOUT-001
+// @MX:SPEC: SPEC-LAYOUT-001, SPEC-UX-006
 import { create } from 'zustand'
 import { storage } from '../lib/storage'
+import { migrateLayoutToResponsive } from '../lib/layoutMigration'
 
 // 레이아웃 스토리지 키
 const LAYOUT_STORAGE_KEY = 'widget-layout'
@@ -48,10 +49,16 @@ export const useLayoutStore = create<LayoutState>((set) => ({
   loadLayout: async () => {
     try {
       const result = await storage.get(LAYOUT_STORAGE_KEY)
-      const layout = result.value
-        ? (JSON.parse(result.value) as WidgetLayout[])
-        : DEFAULT_LAYOUT
-      set({ layout, loaded: true })
+      if (!result.value) {
+        set({ layout: DEFAULT_LAYOUT, loaded: true })
+        return
+      }
+      // REQ-UX-006-004: 평면 WidgetLayout[] 또는 ResponsiveLayout 모두 처리
+      const parsed = JSON.parse(result.value) as WidgetLayout[] | { lg?: WidgetLayout[] }
+      const responsive = migrateLayoutToResponsive(parsed as WidgetLayout[] | { lg: WidgetLayout[] })
+      // 마이그레이션 결과를 저장소에 즉시 재저장 (idempotent)
+      void storage.set(LAYOUT_STORAGE_KEY, JSON.stringify(responsive))
+      set({ layout: responsive.lg, loaded: true })
     } catch {
       set({ layout: DEFAULT_LAYOUT, loaded: true })
     }

@@ -115,7 +115,9 @@ export function PivotLayout({
               top: 0,
               right: 0,
               bottom: 0,
-              left: 0,
+              // Sidebar(width: min(80vw, 320px), z-index 100) 우측 외부만 덮어
+              // backdrop 클릭이 Sidebar 내부 요소에 가로채이지 않도록 한다
+              left: 'min(80vw, 320px)',
               background: 'rgba(0,0,0,0.5)',
               zIndex: 99,
             }}
