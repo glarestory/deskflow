@@ -36,16 +36,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build web bundle
-        run: npm run build:web
+      # Vite 는 .env 파일에서만 VITE_* 환경변수를 로드한다(process.env 미사용).
+      # CI 에는 .env 가 없으므로 Secrets 로부터 빌드 직전에 동적 생성한다.
+      - name: Create .env from Secrets
         env:
-          # Firebase Web SDK config (Repo Settings → Secrets and variables → Actions 에 등록)
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
           VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
           VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+        run: |
+          {
+            printf 'VITE_FIREBASE_API_KEY=%s\n' "$VITE_FIREBASE_API_KEY"
+            printf 'VITE_FIREBASE_AUTH_DOMAIN=%s\n' "$VITE_FIREBASE_AUTH_DOMAIN"
+            printf 'VITE_FIREBASE_PROJECT_ID=%s\n' "$VITE_FIREBASE_PROJECT_ID"
+            printf 'VITE_FIREBASE_STORAGE_BUCKET=%s\n' "$VITE_FIREBASE_STORAGE_BUCKET"
+            printf 'VITE_FIREBASE_MESSAGING_SENDER_ID=%s\n' "$VITE_FIREBASE_MESSAGING_SENDER_ID"
+            printf 'VITE_FIREBASE_APP_ID=%s\n' "$VITE_FIREBASE_APP_ID"
+          } > .env
+          # 키 개수만 검증 — 값은 절대 출력 금지
+          echo "Wrote $(grep -c '^VITE_FIREBASE_' .env) Firebase keys to .env"
+
+      - name: Build web bundle
+        run: npm run build:web
 
       - name: Publish to gh-pages
         uses: peaceiris/actions-gh-pages@v4
