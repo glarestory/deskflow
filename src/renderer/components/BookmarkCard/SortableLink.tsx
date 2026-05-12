@@ -1,4 +1,5 @@
 // SortableLink.tsx — @dnd-kit/sortable 기반 드래그 가능한 북마크 링크 항목 컴포넌트
+import React from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { Link } from '../../types'
@@ -10,13 +11,19 @@ interface SortableLinkProps {
   isEditing: boolean
   /** 클릭 시 usage 기록 */
   onUsage: (id: string) => void
+  /**
+   * REQ-UX-008-005: 링크가 속한 카테고리 id.
+   * onDragOver/onDragEnd에서 active.data.current.categoryId로 소속 카테고리 즉시 식별
+   */
+  categoryId: string
 }
 
 /**
  * REQ-UX-006-008: DndContext 내에서 useSortable 을 사용하는 정렬 가능 링크 항목
  * REQ-UX-006-009: isEditing=false 이면 일반 <a> 클릭 동작만 허용
+ * REQ-UX-008-005: data.current.type='link', data.current.categoryId 로 카테고리 식별
  */
-export default function SortableLink({ link, isEditing, onUsage }: SortableLinkProps): JSX.Element {
+export default function SortableLink({ link, isEditing, onUsage, categoryId }: SortableLinkProps): React.JSX.Element {
   const {
     attributes,
     listeners,
@@ -24,7 +31,12 @@ export default function SortableLink({ link, isEditing, onUsage }: SortableLinkP
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: link.id, disabled: !isEditing })
+  } = useSortable({
+    id: link.id,
+    disabled: !isEditing,
+    // REQ-UX-008-005: 카테고리 id를 data에 포함하여 dragOver/dragEnd에서 즉시 식별
+    data: { type: 'link' as const, categoryId },
+  })
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),

@@ -1,23 +1,15 @@
 // BookmarkCard — 카테고리 북마크 카드 (SPEC-UX-007: 전역 편집 모드 통합, useSortable 지원)
 // @MX:NOTE: [AUTO] BookmarkCard — 카테고리 북마크 카드, dnd-kit 정렬 편집 모드 포함
-// @MX:SPEC: SPEC-UI-001, SPEC-UX-002, SPEC-UX-006, SPEC-UX-007
+// @MX:SPEC: SPEC-UI-001, SPEC-UX-002, SPEC-UX-006, SPEC-UX-007, SPEC-UX-008
 import React, { useRef } from 'react'
-import {
-  DndContext,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
+import { useDroppable } from '@dnd-kit/core'
 import {
   SortableContext,
-  arrayMove,
   rectSortingStrategy,
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useUsageStore } from '../../stores/usageStore'
-import { useBookmarkStore } from '../../stores/bookmarkStore'
 import { useEditMode } from '../../stores/editModeStore'
 import type { Category } from '../../types'
 import SortableLink from './SortableLink'
@@ -30,7 +22,6 @@ interface BookmarkCardProps {
 export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): React.JSX.Element {
   // SPEC-UX-002: 북마크 클릭 시 usage 기록
   const { recordUsage } = useUsageStore()
-  const { updateBookmark } = useBookmarkStore()
 
   // REQ-UX-007-015: 로컬 isEditing 제거 — 전역 편집 모드 사용
   const { isEditing } = useEditMode()
@@ -39,7 +30,7 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
   const cardRef = useRef<HTMLDivElement>(null)
 
   // REQ-UX-007-018: 카테고리 자체 useSortable — 편집 모드 OFF 시 disabled
-  // (WidgetLayout의 카테고리 SortableContext 내에서 동작, D2 격리 구조)
+  // (WidgetLayout의 단일 DndContext 내에서 동작, SPEC-UX-008 D1)
   const {
     attributes,
     listeners,
@@ -47,7 +38,7 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: category.id, disabled: !isEditing })
+  } = useSortable({ id: category.id, disabled: !isEditing, data: { type: 'category' as const } })
 
   const sortableStyle: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -56,25 +47,8 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
     zIndex: isDragging ? 10 : undefined,
   }
 
-  // REQ-UX-006-010: 링크 내부 정렬 — 모바일 long-press 250ms, 데스크탑 즉시 활성 (SPEC-UX-006 패턴 유지)
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { delay: 250, tolerance: 5 },
-    }),
-  )
-
-  // REQ-UX-006-011: 링크 드래그 종료 시 순서 변경 → bookmarkStore 영속화
-  const handleDragEnd = (event: DragEndEvent): void => {
-    const { active, over } = event
-    if (!over || active.id === over.id) return
-
-    const oldIndex = category.links.findIndex((l) => l.id === active.id)
-    const newIndex = category.links.findIndex((l) => l.id === over.id)
-    if (oldIndex === -1 || newIndex === -1) return
-
-    const newLinks = arrayMove(category.links, oldIndex, newIndex)
-    updateBookmark({ ...category, links: newLinks })
-  }
+  // REQ-UX-008-003: 링크 grid 영역을 useDroppable로 등록 — 빈 카테고리도 drop target
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: category.id })
 
   const linkIds = category.links.map((l) => l.id)
 
@@ -114,7 +88,7 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
           marginBottom: 14,
           cursor: isEditing ? 'grab' : 'default',
         }}
-        // REQ-UX-007-012: 편집 모드에서만 카테고리 드래그 활성 (D2)
+        // REQ-UX-007-012: 편집 모드에서만 카테고리 드래그 활성
         {...(isEditing ? { ...attributes, ...listeners } : {})}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -156,30 +130,37 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
         </button>
       </div>
 
-      {/* REQ-UX-006-008/009: 링크 내부 dnd는 별도 DndContext로 격리 (D2) */}
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <SortableContext items={linkIds} strategy={rectSortingStrategy}>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: 8,
-              maxHeight: 420,
-              overflowY: 'auto',
-              minWidth: 0,
-            }}
-          >
-            {category.links.map((link) => (
-              <SortableLink
-                key={link.id}
-                link={link}
-                isEditing={isEditing}
-                onUsage={(id) => recordUsage('bookmark', id)}
-              />
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
+      {/* REQ-UX-008-002: BookmarkCard 내부 DndContext 제거 — WidgetLayout 단일 DndContext 사용 (D1)
+          REQ-UX-008-004: SortableContext에 id={category.id} 명시 — dnd-kit sortable.containerId 식별
+          REQ-UX-008-003: setDropRef로 링크 grid를 droppable 컨테이너 등록 */}
+      <SortableContext id={category.id} items={linkIds} strategy={rectSortingStrategy}>
+        <div
+          ref={setDropRef}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 8,
+            maxHeight: 420,
+            overflowY: 'auto',
+            minWidth: 0,
+            // REQ-UX-008-003 D4: 빈 카테고리도 drop target hit-area 확보 (NFR-003 모바일)
+            minHeight: 48,
+            // isOver 시 시각적 드롭 힌트
+            background: isOver && isEditing ? 'var(--accent-subtle, rgba(99,102,241,0.08))' : undefined,
+            borderRadius: isOver && isEditing ? 8 : undefined,
+          }}
+        >
+          {category.links.map((link) => (
+            <SortableLink
+              key={link.id}
+              link={link}
+              isEditing={isEditing}
+              onUsage={(id) => recordUsage('bookmark', id)}
+              categoryId={category.id}
+            />
+          ))}
+        </div>
+      </SortableContext>
     </div>
   )
 }

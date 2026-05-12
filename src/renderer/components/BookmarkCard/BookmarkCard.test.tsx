@@ -1,6 +1,8 @@
 // BookmarkCard 단위 테스트 — SPEC-UX-006 + SPEC-UX-007 전역 편집 모드 통합
+// REQ-UX-008-002: BookmarkCard 내부 DndContext 제거 후 외부 DndContext wrapper 필요
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { DndContext } from '@dnd-kit/core'
 import '@testing-library/jest-dom'
 import type { Category } from '../../types'
 
@@ -34,12 +36,18 @@ const mockCategory: Category = {
   ],
 }
 
+// REQ-UX-008-002: BookmarkCard는 외부 DndContext 안에서 렌더링되어야 함
 // BookmarkCard를 동적 import하는 헬퍼 (모킹 이후 로드 보장)
 async function renderCard(category = mockCategory, isEditing = false) {
   mockIsEditing = isEditing
   const { default: BookmarkCard } = await import('./BookmarkCard')
   const onEdit = vi.fn()
-  const result = render(<BookmarkCard category={category} onEdit={onEdit} />)
+  // 외부 DndContext wrapper — BookmarkCard 내부 DndContext 제거로 필요 (SPEC-UX-008 D1)
+  const result = render(
+    <DndContext>
+      <BookmarkCard category={category} onEdit={onEdit} />
+    </DndContext>
+  )
   return { onEdit, ...result }
 }
 
@@ -100,5 +108,14 @@ describe('BookmarkCard (SPEC-UX-006 + SPEC-UX-007)', () => {
     fireEvent.mouseDown(document.body)
     // editModeStore의 set이 호출되지 않아야 함
     expect(mockSet).not.toHaveBeenCalled()
+  })
+
+  // REQ-UX-008-003: 링크 grid 영역의 min-height가 48px인지 확인
+  it('링크 grid 영역의 min-height가 48px이어야 한다 (REQ-UX-008-003, D4)', async () => {
+    await renderCard(mockCategory, true)
+    // Gmail 링크의 부모 grid div를 찾아 스타일 확인
+    const gmailEl = screen.getByText('Gmail').closest('a')
+    const gridDiv = gmailEl?.parentElement
+    expect(gridDiv).toHaveStyle({ minHeight: '48px' })
   })
 })
