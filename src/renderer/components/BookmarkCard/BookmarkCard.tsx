@@ -77,10 +77,13 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
         e.currentTarget.style.boxShadow = ''
       }}
     >
-      {/* 카테고리 헤더 — REQ-UX-007-010: widget-drag-handle 역할 + useSortable listeners */}
+      {/* 카테고리 헤더 — REQ-UX-007-010: useSortable listeners 만 사용
+          SPEC-UX-008 FIX: 위젯 자체 드래그 핸들(widget-drag-handle) 클래스 제거.
+          이전에는 react-grid-layout(.widget-drag-handle) 과 dnd-kit useSortable 이 동일 요소에서
+          포인터 이벤트를 경쟁해 그룹/링크 DnD 가 깨졌다. 위젯 자체는 위젯 상단 "즐겨찾기" 타이틀로 분리. */}
       <div
         ref={cardRef}
-        className="widget-drag-handle"
+        data-category-handle
         style={{
           display: 'flex',
           justifyContent: 'space-between',
