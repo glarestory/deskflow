@@ -1,20 +1,24 @@
 // @MX:NOTE: [AUTO] WidgetLayout — Responsive 그리드 레이아웃 컴포넌트 (SPEC-UX-006 반응형 그리드 전환)
 // @MX:NOTE: [AUTO] App.tsx에서 추출 (SPEC-UX-005 T-003). viewMode === 'widgets'일 때 렌더링됨
 // @MX:SPEC: SPEC-UX-005, SPEC-LAYOUT-001, SPEC-UI-001, SPEC-CAPSULE-001, SPEC-MOBILE-RESPONSIVE-001, SPEC-UX-006
-import { useMemo, useState, useCallback, useEffect } from 'react'
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import { Pencil, Check } from 'lucide-react'
 import {
   DndContext,
+  DragOverlay,
+  closestCorners,
   PointerSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core'
 import { SortableContext, arrayMove, rectSortingStrategy } from '@dnd-kit/sortable'
-import type { Category } from '../../types'
+import type { Category, Link } from '../../types'
 import type { WidgetLayout as WidgetLayoutItem } from '../../stores/layoutStore'
 import { useBookmarkStore } from '../../stores/bookmarkStore'
 import { useThemeStore } from '../../stores/themeStore'
@@ -102,28 +106,170 @@ export default function WidgetLayout({
   // REQ-UX-006-003: 현재 브레이크포인트 상태 (Responsive onBreakpointChange 콜백에서 갱신)
   const [currentBreakpoint, setCurrentBreakpoint] = useState<string>('lg')
 
-  // REQ-UX-007-011,012: 카테고리 정렬용 DndContext 센서 — SPEC-UX-006 패턴 재사용 (D2 격리)
+  // REQ-UX-008-001: 카테고리+링크 통합 단일 DndContext 센서
+  // REQ-UX-006-010 패턴 유지 — delay 250ms, tolerance 5 (모바일 long-press, NFR-003)
   const categorySensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { delay: 250, tolerance: 5 },
     }),
   )
 
-  // REQ-UX-007-013: 카테고리 드래그 종료 시 reorderCategories 호출
-  const { reorderCategories } = useBookmarkStore()
-  const handleCategoryDragEnd = useCallback(
+  const { reorderCategories, updateBookmark, moveLinkBetweenGroups } = useBookmarkStore()
+
+  // D7 옵션 B: dragging 중 in-memory 임시 상태 (영속화는 dragEnd에서만)
+  const [localBookmarks, setLocalBookmarks] = useState<Category[] | null>(null)
+
+  // dragStart 시 원본 카테고리 id를 ref에 저장 (dragOver 이후에도 원본 추적)
+  const originalCategoryIdRef = useRef<string | null>(null)
+  // DragOverlay 렌더링을 위한 active 링크 상태
+  const [activeLink, setActiveLink] = useState<Link | null>(null)
+
+  // REQ-UX-008-001: onDragStart — active 항목 종류 분기, 원본 카테고리 기억
+  const handleDragStart = useCallback(
+    (event: DragStartEvent) => {
+      const { active } = event
+      if (active.data.current?.type === 'link') {
+        const categoryId = active.data.current.categoryId as string
+        originalCategoryIdRef.current = categoryId
+        // DragOverlay 렌더링을 위해 active 링크 객체 추출
+        const source = bookmarks.find((b) => b.id === categoryId)
+        const link = source?.links.find((l) => l.id === active.id)
+        setActiveLink(link ?? null)
+        // 임시 상태를 store bookmarks로 초기화
+        setLocalBookmarks(bookmarks.map((b) => ({ ...b, links: [...b.links] })))
+      } else {
+        originalCategoryIdRef.current = null
+        setActiveLink(null)
+      }
+    },
+    [bookmarks],
+  )
+
+  // REQ-UX-008-010: onDragOver — 카테고리 간 이동을 in-memory 상태로 미리 반영
+  // 영속화 금지 (REQ-UX-008-013)
+  const handleDragOver = useCallback(
+    (event: DragOverEvent) => {
+      const { active, over } = event
+      if (!over) return
+      // link 드래그만 처리
+      if (active.data.current?.type !== 'link') return
+
+      const sourceCategoryId = active.data.current.categoryId as string
+      // over가 링크 카드면 sortable.containerId, over가 droppable 컨테이너면 over.id
+      const targetCategoryId =
+        (over.data.current?.sortable?.containerId as string | undefined) ?? String(over.id)
+
+      // 같은 카테고리면 no-op (단일 그룹 정렬은 dragEnd에서 처리)
+      if (sourceCategoryId === targetCategoryId) return
+
+      // 임시 상태 갱신 (in-memory only, 영속화 없음)
+      setLocalBookmarks((prev) => {
+        const base = prev ?? bookmarks
+        const linkId = String(active.id)
+
+        const fromCat = base.find((b) => b.id === sourceCategoryId)
+        const toCat = base.find((b) => b.id === targetCategoryId)
+        if (!fromCat || !toCat) return prev
+
+        const link = fromCat.links.find((l) => l.id === linkId)
+        if (!link) return prev
+
+        const nextFromLinks = fromCat.links.filter((l) => l.id !== linkId)
+        // over가 링크 카드이면 그 인덱스에 삽입, over가 컨테이너이면 끝에 삽입
+        const overLinkIndex = toCat.links.findIndex((l) => l.id === String(over.id))
+        const insertIndex = overLinkIndex >= 0 ? overLinkIndex : toCat.links.length
+        const nextToLinks = [
+          ...toCat.links.slice(0, insertIndex),
+          link,
+          ...toCat.links.slice(insertIndex),
+        ]
+
+        return base.map((b) => {
+          if (b.id === sourceCategoryId) return { ...b, links: nextFromLinks }
+          if (b.id === targetCategoryId) return { ...b, links: nextToLinks }
+          return b
+        })
+      })
+    },
+    [bookmarks],
+  )
+
+  // REQ-UX-008-001: handleDragEnd — active type 분기로 카테고리/링크 처리 통합
+  const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event
-      if (!over || active.id === over.id) return
-      const ids = bookmarks.map((b) => b.id)
-      const oldIndex = ids.indexOf(String(active.id))
-      const newIndex = ids.indexOf(String(over.id))
-      if (oldIndex === -1 || newIndex === -1) return
-      const newOrder = arrayMove(ids, oldIndex, newIndex)
-      reorderCategories(newOrder)
+
+      // dragEnd 후 임시 상태와 overlay 초기화
+      setLocalBookmarks(null)
+      setActiveLink(null)
+
+      if (!over) {
+        originalCategoryIdRef.current = null
+        return
+      }
+
+      if (active.data.current?.type === 'category') {
+        // REQ-UX-007-013: 카테고리 자체 정렬 — 기존 SPEC-UX-007 동작 유지
+        if (active.id === over.id) {
+          originalCategoryIdRef.current = null
+          return
+        }
+        const ids = bookmarks.map((b) => b.id)
+        const oldIndex = ids.indexOf(String(active.id))
+        const newIndex = ids.indexOf(String(over.id))
+        if (oldIndex !== -1 && newIndex !== -1) {
+          reorderCategories(arrayMove(ids, oldIndex, newIndex))
+        }
+        originalCategoryIdRef.current = null
+        return
+      }
+
+      if (active.data.current?.type === 'link') {
+        const originalCategoryId = originalCategoryIdRef.current
+        originalCategoryIdRef.current = null
+
+        if (!originalCategoryId) return
+
+        const linkId = String(active.id)
+        // over가 링크이면 containerId, over가 droppable 컨테이너이면 over.id
+        const finalTargetCategoryId =
+          (over.data.current?.sortable?.containerId as string | undefined) ?? String(over.id)
+
+        if (originalCategoryId === finalTargetCategoryId) {
+          // REQ-UX-008-006: 단일 그룹 정렬 (SPEC-UX-006 패턴 유지)
+          if (active.id === over.id) {
+            // REQ-UX-008-016: 같은 위치 no-op
+            return
+          }
+          const cat = bookmarks.find((b) => b.id === originalCategoryId)
+          if (!cat) return
+          const oldIndex = cat.links.findIndex((l) => l.id === linkId)
+          const newIndex = cat.links.findIndex((l) => l.id === String(over.id))
+          if (oldIndex === -1 || newIndex === -1) return
+          updateBookmark({ ...cat, links: arrayMove(cat.links, oldIndex, newIndex) })
+        } else {
+          // REQ-UX-008-007: 그룹 간 이동 — moveLinkBetweenGroups 1회 호출
+          const toCat = bookmarks.find((b) => b.id === finalTargetCategoryId)
+          if (!toCat) return
+          const overLinkIndex = toCat.links.findIndex((l) => l.id === String(over.id))
+          // over가 링크이면 그 인덱스, over가 droppable 컨테이너이면 끝(links.length)
+          const toIndex = overLinkIndex >= 0 ? overLinkIndex : toCat.links.length
+          moveLinkBetweenGroups(linkId, originalCategoryId, finalTargetCategoryId, toIndex)
+        }
+      }
     },
-    [bookmarks, reorderCategories],
+    [bookmarks, reorderCategories, updateBookmark, moveLinkBetweenGroups],
   )
+
+  // REQ-UX-008-013: dragCancel 시 임시 상태 복원 (영속화 없음)
+  const handleDragCancel = useCallback(() => {
+    setLocalBookmarks(null)
+    setActiveLink(null)
+    originalCategoryIdRef.current = null
+  }, [])
+
+  // D7 옵션 B: 렌더링에 사용할 bookmarks — dragging 중에는 임시, 아니면 store
+  const displayBookmarks = localBookmarks ?? bookmarks
 
   // REQ-UX-006-002: xs/xxs 에서 드래그·리사이즈 비활성
   const isMobileBreakpoint = MOBILE_BREAKPOINTS.has(currentBreakpoint)
@@ -539,7 +685,7 @@ export default function WidgetLayout({
 
           {/* Bookmarks 위젯 */}
           {/* @MX:NOTE: [AUTO] SPEC-LAYOUT-002 Step 3 — 스크롤 컨테이너와 내부 grid 분리 */}
-          {/* REQ-UX-007-011: 카테고리 순서 변경을 위해 별도 DndContext로 래핑 (D2 — 링크 DndContext와 격리) */}
+          {/* REQ-UX-008-001: 단일 DndContext로 카테고리 정렬 + 링크 이동 통합 (D1) */}
           <div
             key="bookmarks"
             style={{
@@ -550,8 +696,17 @@ export default function WidgetLayout({
               overflowY: 'auto',
             }}
           >
-            <DndContext sensors={categorySensors} onDragEnd={handleCategoryDragEnd}>
-              <SortableContext items={bookmarks.map((b) => b.id)} strategy={rectSortingStrategy}>
+            {/* REQ-UX-008-011 D2: closestCorners — 빈 카테고리 포함 droppable 경계 인식 */}
+            <DndContext
+              sensors={categorySensors}
+              collisionDetection={closestCorners}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDragEnd={handleDragEnd}
+              onDragCancel={handleDragCancel}
+            >
+              {/* REQ-UX-007-011: 카테고리 자체 정렬용 SortableContext (SPEC-UX-007 유지) */}
+              <SortableContext items={displayBookmarks.map((b) => b.id)} strategy={rectSortingStrategy}>
                 <div
                   style={{
                     display: 'grid',
@@ -562,7 +717,7 @@ export default function WidgetLayout({
                     boxSizing: 'border-box',
                   }}
                 >
-                  {bookmarks.map((cat) => (
+                  {displayBookmarks.map((cat) => (
                     <BookmarkCard
                       key={cat.id}
                       category={cat}
@@ -571,6 +726,37 @@ export default function WidgetLayout({
                   ))}
                 </div>
               </SortableContext>
+              {/* REQ-UX-008-012: 드래그 중 링크 미러 표시 — 단순 카드 카피 */}
+              <DragOverlay>
+                {activeLink ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '10px 12px',
+                      borderRadius: 10,
+                      background: 'var(--link-bg)',
+                      color: 'var(--text-primary)',
+                      fontSize: 13,
+                      opacity: 1,
+                      cursor: 'grabbing',
+                      boxShadow: '0 8px 24px var(--shadow)',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontWeight: 500,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {activeLink.name}
+                    </span>
+                  </div>
+                ) : null}
+              </DragOverlay>
             </DndContext>
           </div>
 
