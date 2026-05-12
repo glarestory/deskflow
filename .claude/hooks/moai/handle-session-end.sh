@@ -16,8 +16,8 @@ if command -v moai &> /dev/null; then
 fi
 
 # Try detected Go bin path from initialization
-if [ -f "/home/zerojunek/go/bin/moai" ]; then
-	exec "/home/zerojunek/go/bin/moai" hook session-end < "$temp_file" 2>/dev/null
+if [ -f "/Users/codej/go/bin/moai" ]; then
+	exec "/Users/codej/go/bin/moai" hook session-end < "$temp_file" 2>/dev/null
 fi
 
 # Try default ~/go/bin/moai

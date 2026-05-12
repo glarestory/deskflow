@@ -25,7 +25,6 @@ mem.prof
 # ===========================================
 build/
 dist/
-web-dist/
 *.egg-info/
 *.egg
 
@@ -182,7 +181,13 @@ secret-*.*
 .moai/status_line.sh
 .moai/memory/
 .moai/worktrees/
-.moai/plans/
+
+# ===========================================
+# Evolution Telemetry (local-only usage data)
+# Learnings and new-skills are git-tracked for team sharing.
+# ===========================================
+.moai/evolution/telemetry/*.jsonl
+!.moai/evolution/telemetry/.gitkeep
 
 # ===========================================
 # Node.js (for docs/Nextra)
@@ -207,9 +212,9 @@ dist-ssr/
 .netlify/
 .firebase/
 
-# ===========================================
-# Playwright
-# ===========================================
+# User Custom Patterns (preserved by moai update)
+web-dist/
+.moai/plans/
 playwright-report/
 test-results/
 /playwright/.cache/
