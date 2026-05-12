@@ -496,13 +496,13 @@ export default function WidgetLayout({
           onDragStart={onDragStart}
           onDragStop={onDragStop}
         >
-          {/* Clock 위젯 */}
-          <div key="clock" style={{ background: 'transparent' }}>
+          {/* Clock 위젯 — REQ-UX-007-010: 헤더 없으므로 셀 래퍼에 drag-handle 부여 (D1) */}
+          <div key="clock" className="widget-drag-handle" style={{ background: 'transparent' }}>
             <Clock />
           </div>
 
-          {/* SearchBar 위젯 — 데스크탑에서만 그리드 내부에 표시 */}
-          <div key="search" style={{ background: 'transparent' }}>
+          {/* SearchBar 위젯 — 데스크탑에서만 그리드 내부에 표시 (REQ-UX-007-010: 셀 래퍼에 drag-handle) */}
+          <div key="search" className="widget-drag-handle" style={{ background: 'transparent' }}>
             {!isMobile && <SearchBar />}
           </div>
 
