@@ -61,6 +61,17 @@ jobs:
       - name: Build web bundle
         run: npm run build:web
 
+      - name: Verify Firebase key is bundled
+        run: |
+          MATCHES=$(grep -hoE 'AIza[A-Za-z0-9_-]{35}' web-dist/assets/*.js | sort -u | wc -l)
+          echo "Distinct Firebase API key matches in bundle: $MATCHES"
+          if [ "$MATCHES" -lt 1 ]; then
+            echo "::error::Firebase API key not bundled — env injection failed"
+            echo "--- .env state ---"
+            test -f .env && wc -l .env || echo "no .env"
+            exit 1
+          fi
+
       - name: Publish to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
