@@ -1,6 +1,0 @@
-node_modules/
-out/
-dist/
-web-dist/
-*.min.js
-.next/
