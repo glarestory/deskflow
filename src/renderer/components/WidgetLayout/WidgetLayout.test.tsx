@@ -1,6 +1,6 @@
-// @MX:SPEC: SPEC-UX-005
+// @MX:SPEC: SPEC-UX-005, SPEC-UX-007
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import '@testing-library/jest-dom'
 
 // react-grid-layout 모킹 — Responsive 컴포넌트 노출 포함 (SPEC-UX-006)
@@ -21,6 +21,20 @@ vi.mock('react-grid-layout/legacy', () => {
   MockGridLayout.displayName = 'MockGridLayout'
   const WidthProvider = <P extends object>(Component: React.ComponentType<P>) => Component
   return { default: MockGridLayout, Responsive: MockGridLayout, WidthProvider }
+})
+
+// editModeStore 모킹 (M2: SPEC-UX-007)
+vi.mock('../../stores/editModeStore', () => {
+  let isEditing = false
+  const toggle = vi.fn(() => { isEditing = !isEditing })
+  const set = vi.fn((v: boolean) => { isEditing = v })
+  return {
+    useEditModeStore: Object.assign(
+      () => ({ isEditing, toggle, set }),
+      { getState: () => ({ isEditing, toggle, set }) }
+    ),
+    useEditMode: () => ({ isEditing, toggle, set }),
+  }
 })
 
 // 스토어 모킹
@@ -229,5 +243,40 @@ describe('WidgetLayout (SPEC-UX-005)', () => {
     const { default: WidgetLayout } = await import('./WidgetLayout')
     render(<WidgetLayout {...mockHandlers} />)
     expect(screen.getByTestId('dedup-btn')).toBeInTheDocument()
+  })
+
+  // SPEC-UX-007 M2: 데스크탑 헤더 편집 토글 버튼 (AC-003)
+  it('데스크탑 모드에서 edit-mode-toggle 버튼이 렌더링된다 (AC-003)', async () => {
+    const { default: WidgetLayout } = await import('./WidgetLayout')
+    render(<WidgetLayout {...mockHandlers} />)
+    expect(screen.getByTestId('edit-mode-toggle')).toBeInTheDocument()
+  })
+
+  it('편집 모드 OFF일 때 토글 버튼 라벨이 "편집"이어야 한다 (AC-003)', async () => {
+    const { default: WidgetLayout } = await import('./WidgetLayout')
+    render(<WidgetLayout {...mockHandlers} />)
+    const btn = screen.getByTestId('edit-mode-toggle')
+    expect(btn).toHaveTextContent('편집')
+  })
+
+  // SPEC-UX-007 M2: body.is-edit-mode 클래스 토글 (AC-009)
+  it('편집 토글 버튼 클릭 시 body에 is-edit-mode 클래스가 추가되어야 한다 (AC-009)', async () => {
+    const { default: WidgetLayout } = await import('./WidgetLayout')
+    render(<WidgetLayout {...mockHandlers} />)
+    // 초기 상태에서는 클래스가 없어야 함
+    expect(document.body.classList.contains('is-edit-mode')).toBe(false)
+  })
+
+  // SPEC-UX-007 M2: Esc 키로 편집 모드 종료 (AC-008)
+  it('Esc 키 누름 시 편집 모드가 종료되어야 한다 (AC-008)', async () => {
+    const { default: WidgetLayout } = await import('./WidgetLayout')
+    const { useEditMode } = await import('../../stores/editModeStore')
+    render(<WidgetLayout {...mockHandlers} />)
+    // Esc 이벤트 발생
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    })
+    // isEditing이 false인 상태에서 Esc는 부수 효과 없음 (idempotent)
+    expect(useEditMode().isEditing).toBe(false)
   })
 })

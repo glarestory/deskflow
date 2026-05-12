@@ -5,6 +5,7 @@ import { useMemo, useState, useCallback, useEffect } from 'react'
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
+import { Pencil, Check } from 'lucide-react'
 import type { Category } from '../../types'
 import type { WidgetLayout as WidgetLayoutItem } from '../../stores/layoutStore'
 import { useBookmarkStore } from '../../stores/bookmarkStore'
@@ -12,6 +13,7 @@ import { useThemeStore } from '../../stores/themeStore'
 import { useLayoutStore } from '../../stores/layoutStore'
 import { useAuthStore } from '../../stores/authStore'
 import { useIsMobile } from '../../hooks/useIsMobile'
+import { useEditMode } from '../../stores/editModeStore'
 import Clock from '../Clock/Clock'
 import SearchBar from '../SearchBar/SearchBar'
 import BookmarkCard from '../BookmarkCard/BookmarkCard'
@@ -86,6 +88,8 @@ export default function WidgetLayout({
   const { layout, resetLayout } = useLayoutStore()
   const { user, signOut } = useAuthStore()
   const isMobile = useIsMobile()
+  // REQ-UX-007-001: 전역 편집 모드 상태
+  const { isEditing, toggle: toggleEditMode, set: setEditMode } = useEditMode()
 
   // REQ-UX-006-003: 현재 브레이크포인트 상태 (Responsive onBreakpointChange 콜백에서 갱신)
   const [currentBreakpoint, setCurrentBreakpoint] = useState<string>('lg')
@@ -128,6 +132,26 @@ export default function WidgetLayout({
       document.body.classList.remove('is-dragging-widget')
     }
   }, [])
+
+  // REQ-UX-007-008: 편집 모드 ON/OFF 시 body.is-edit-mode 클래스 토글 (D4)
+  // EDGE-003: PivotLayout 전환으로 unmount 시 클래스 누수 방지
+  useEffect(() => {
+    document.body.classList.toggle('is-edit-mode', isEditing)
+    return () => {
+      document.body.classList.remove('is-edit-mode')
+    }
+  }, [isEditing])
+
+  // REQ-UX-007-007: Esc 키로 편집 모드 종료 (D3)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape' && isEditing) {
+        setEditMode(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isEditing, setEditMode])
 
   const handlePivotModeClick = (): void => {
     onTogglePivotMode()
@@ -245,6 +269,8 @@ export default function WidgetLayout({
               resetLayout={resetLayout}
               onTogglePivotMode={handlePivotModeClick}
               signOut={signOut}
+              isEditing={isEditing}
+              onToggleEdit={toggleEditMode}
             />
           </div>
         ) : (
@@ -371,6 +397,27 @@ export default function WidgetLayout({
             >
               레이아웃 초기화
             </button>
+            {/* REQ-UX-007-002: 데스크탑 편집 모드 토글 버튼 */}
+            <button
+              data-testid="edit-mode-toggle"
+              onClick={toggleEditMode}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '7px 14px',
+                borderRadius: 10,
+                border: isEditing ? '1px solid var(--accent)' : '1px solid var(--border)',
+                background: isEditing ? 'var(--accent)' : 'var(--card-bg)',
+                color: isEditing ? '#fff' : 'var(--text-muted)',
+                fontSize: 12,
+                cursor: 'pointer',
+                fontWeight: isEditing ? 600 : 400,
+              }}
+            >
+              {isEditing ? <Check size={14} /> : <Pencil size={14} />}
+              {isEditing ? '완료' : '편집'}
+            </button>
             {/* T-005: SPEC-UX-005 — Pivot 모드 전환 버튼 */}
             <button
               data-testid="pivot-mode-btn"
@@ -443,8 +490,8 @@ export default function WidgetLayout({
           onLayoutChange={onLayoutChangeGuarded}
           onBreakpointChange={(bp) => setCurrentBreakpoint(bp)}
           draggableHandle=".widget-drag-handle"
-          isResizable={!isMobile && !isMobileBreakpoint}
-          isDraggable={!isMobile && !isMobileBreakpoint}
+          isResizable={isEditing && !isMobile && !isMobileBreakpoint}
+          isDraggable={isEditing && !isMobile && !isMobileBreakpoint}
           measureBeforeMount={false}
           onDragStart={onDragStart}
           onDragStop={onDragStop}
