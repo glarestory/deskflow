@@ -214,4 +214,82 @@ describe('bookmarkStore', () => {
     const devCount = newLink?.tags.filter((t) => t === 'dev').length
     expect(devCount).toBe(1) // 중복 없이 단일 dev
   })
+
+  // SPEC-UX-007: reorderCategories API (REQ-UX-007-014, AC-014)
+  describe('reorderCategories', () => {
+    it('orderedIds 순서대로 bookmarks를 재정렬해야 한다 (AC-014)', async () => {
+      mockGet.mockResolvedValue({ value: null })
+      const { useBookmarkStore } = await import('./bookmarkStore')
+      // [A, B, C, D] 초기 상태 설정
+      useBookmarkStore.setState({
+        bookmarks: [
+          { id: 'A', name: 'A', icon: '📌', links: [] },
+          { id: 'B', name: 'B', icon: '📌', links: [] },
+          { id: 'C', name: 'C', icon: '📌', links: [] },
+          { id: 'D', name: 'D', icon: '📌', links: [] },
+        ],
+        loaded: true,
+      })
+
+      useBookmarkStore.getState().reorderCategories(['C', 'A', 'B'])
+
+      const ids = useBookmarkStore.getState().bookmarks.map((b) => b.id)
+      // D는 orderedIds에 없으므로 끝에 보존 → [C, A, B, D]
+      expect(ids).toEqual(['C', 'A', 'B', 'D'])
+    })
+
+    it('일부 id만 지정하면 나머지는 끝에 보존된다 (AC-014)', async () => {
+      mockGet.mockResolvedValue({ value: null })
+      const { useBookmarkStore } = await import('./bookmarkStore')
+      useBookmarkStore.setState({
+        bookmarks: [
+          { id: 'A', name: 'A', icon: '📌', links: [] },
+          { id: 'B', name: 'B', icon: '📌', links: [] },
+          { id: 'C', name: 'C', icon: '📌', links: [] },
+          { id: 'D', name: 'D', icon: '📌', links: [] },
+        ],
+        loaded: true,
+      })
+
+      useBookmarkStore.getState().reorderCategories(['B', 'A'])
+
+      const ids = useBookmarkStore.getState().bookmarks.map((b) => b.id)
+      // C, D 보존 → [B, A, C, D]
+      expect(ids).toEqual(['B', 'A', 'C', 'D'])
+    })
+
+    it('존재하지 않는 id는 무시하고 매칭된 것만 앞으로 이동한다 (AC-014)', async () => {
+      mockGet.mockResolvedValue({ value: null })
+      const { useBookmarkStore } = await import('./bookmarkStore')
+      useBookmarkStore.setState({
+        bookmarks: [
+          { id: 'A', name: 'A', icon: '📌', links: [] },
+          { id: 'B', name: 'B', icon: '📌', links: [] },
+          { id: 'C', name: 'C', icon: '📌', links: [] },
+          { id: 'D', name: 'D', icon: '📌', links: [] },
+        ],
+        loaded: true,
+      })
+
+      useBookmarkStore.getState().reorderCategories(['unknown', 'A', 'X'])
+
+      const ids = useBookmarkStore.getState().bookmarks.map((b) => b.id)
+      // unknown, X는 무시 → A만 앞으로, B C D 뒤에 → [A, B, C, D]
+      expect(ids).toEqual(['A', 'B', 'C', 'D'])
+    })
+
+    it('단일 카테고리만 있을 때 no-op이어야 한다 (EDGE-004)', async () => {
+      mockGet.mockResolvedValue({ value: null })
+      const { useBookmarkStore } = await import('./bookmarkStore')
+      useBookmarkStore.setState({
+        bookmarks: [{ id: 'solo', name: 'Solo', icon: '📌', links: [] }],
+        loaded: true,
+      })
+
+      useBookmarkStore.getState().reorderCategories(['solo'])
+
+      const ids = useBookmarkStore.getState().bookmarks.map((b) => b.id)
+      expect(ids).toEqual(['solo'])
+    })
+  })
 })

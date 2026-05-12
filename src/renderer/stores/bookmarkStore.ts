@@ -88,6 +88,12 @@ interface BookmarkState {
    * 없으면 true로, true이면 false로 전환.
    */
   toggleFavorite: (linkId: string) => void
+  /**
+   * SPEC-UX-007 REQ-UX-007-014: 카테고리 순서를 orderedIds 기반으로 재정렬한다.
+   * - orderedIds에 포함된 id는 해당 순서대로 앞에 배치
+   * - orderedIds에 없는 기존 카테고리는 원래 순서 유지하며 끝에 보존 (idempotent)
+   */
+  reorderCategories: (orderedIds: string[]) => void
 }
 
 export const useBookmarkStore = create<BookmarkState>((set, get) => ({
@@ -224,6 +230,22 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
         ),
       })),
     }))
+    const { loaded, bookmarks } = get()
+    if (loaded) {
+      void storage.set('hub-bookmarks', JSON.stringify(bookmarks))
+    }
+  },
+
+  reorderCategories: (orderedIds) => {
+    set((state) => {
+      // orderedIds 순서대로 매칭되는 카테고리를 앞에 배치
+      const ordered = orderedIds
+        .map((id) => state.bookmarks.find((b) => b.id === id))
+        .filter((b): b is NonNullable<typeof b> => b !== undefined)
+      // orderedIds에 없는 카테고리는 원래 순서대로 끝에 보존
+      const missing = state.bookmarks.filter((b) => !orderedIds.includes(b.id))
+      return { bookmarks: [...ordered, ...missing] }
+    })
     const { loaded, bookmarks } = get()
     if (loaded) {
       void storage.set('hub-bookmarks', JSON.stringify(bookmarks))

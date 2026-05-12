@@ -6,6 +6,14 @@ import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import { Pencil, Check } from 'lucide-react'
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import { SortableContext, arrayMove, rectSortingStrategy } from '@dnd-kit/sortable'
 import type { Category } from '../../types'
 import type { WidgetLayout as WidgetLayoutItem } from '../../stores/layoutStore'
 import { useBookmarkStore } from '../../stores/bookmarkStore'
@@ -93,6 +101,29 @@ export default function WidgetLayout({
 
   // REQ-UX-006-003: 현재 브레이크포인트 상태 (Responsive onBreakpointChange 콜백에서 갱신)
   const [currentBreakpoint, setCurrentBreakpoint] = useState<string>('lg')
+
+  // REQ-UX-007-011,012: 카테고리 정렬용 DndContext 센서 — SPEC-UX-006 패턴 재사용 (D2 격리)
+  const categorySensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
+    }),
+  )
+
+  // REQ-UX-007-013: 카테고리 드래그 종료 시 reorderCategories 호출
+  const { reorderCategories } = useBookmarkStore()
+  const handleCategoryDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event
+      if (!over || active.id === over.id) return
+      const ids = bookmarks.map((b) => b.id)
+      const oldIndex = ids.indexOf(String(active.id))
+      const newIndex = ids.indexOf(String(over.id))
+      if (oldIndex === -1 || newIndex === -1) return
+      const newOrder = arrayMove(ids, oldIndex, newIndex)
+      reorderCategories(newOrder)
+    },
+    [bookmarks, reorderCategories],
+  )
 
   // REQ-UX-006-002: xs/xxs 에서 드래그·리사이즈 비활성
   const isMobileBreakpoint = MOBILE_BREAKPOINTS.has(currentBreakpoint)
@@ -508,6 +539,7 @@ export default function WidgetLayout({
 
           {/* Bookmarks 위젯 */}
           {/* @MX:NOTE: [AUTO] SPEC-LAYOUT-002 Step 3 — 스크롤 컨테이너와 내부 grid 분리 */}
+          {/* REQ-UX-007-011: 카테고리 순서 변경을 위해 별도 DndContext로 래핑 (D2 — 링크 DndContext와 격리) */}
           <div
             key="bookmarks"
             style={{
@@ -518,24 +550,28 @@ export default function WidgetLayout({
               overflowY: 'auto',
             }}
           >
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-                gap: 16,
-                padding: 16,
-                minWidth: 0,
-                boxSizing: 'border-box',
-              }}
-            >
-              {bookmarks.map((cat) => (
-                <BookmarkCard
-                  key={cat.id}
-                  category={cat}
-                  onEdit={onSetEditingCategory}
-                />
-              ))}
-            </div>
+            <DndContext sensors={categorySensors} onDragEnd={handleCategoryDragEnd}>
+              <SortableContext items={bookmarks.map((b) => b.id)} strategy={rectSortingStrategy}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                    gap: 16,
+                    padding: 16,
+                    minWidth: 0,
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  {bookmarks.map((cat) => (
+                    <BookmarkCard
+                      key={cat.id}
+                      category={cat}
+                      onEdit={onSetEditingCategory}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           </div>
 
           {/* Todo 위젯 */}

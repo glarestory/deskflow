@@ -1,6 +1,7 @@
+// BookmarkCard — 카테고리 북마크 카드 (SPEC-UX-007: 전역 편집 모드 통합, useSortable 지원)
 // @MX:NOTE: [AUTO] BookmarkCard — 카테고리 북마크 카드, dnd-kit 정렬 편집 모드 포함
-// @MX:SPEC: SPEC-UI-001, SPEC-UX-002, SPEC-UX-006
-import { useState, useEffect, useRef } from 'react'
+// @MX:SPEC: SPEC-UI-001, SPEC-UX-002, SPEC-UX-006, SPEC-UX-007
+import React, { useRef } from 'react'
 import {
   DndContext,
   PointerSensor,
@@ -12,9 +13,12 @@ import {
   SortableContext,
   arrayMove,
   rectSortingStrategy,
+  useSortable,
 } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useUsageStore } from '../../stores/usageStore'
 import { useBookmarkStore } from '../../stores/bookmarkStore'
+import { useEditMode } from '../../stores/editModeStore'
 import type { Category } from '../../types'
 import SortableLink from './SortableLink'
 
@@ -23,35 +27,43 @@ interface BookmarkCardProps {
   onEdit: (category: Category) => void
 }
 
-export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): JSX.Element {
+export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): React.JSX.Element {
   // SPEC-UX-002: 북마크 클릭 시 usage 기록
   const { recordUsage } = useUsageStore()
   const { updateBookmark } = useBookmarkStore()
 
-  // REQ-UX-006-009: 편집 모드 상태 (⚙️ 버튼으로 토글)
-  const [isEditing, setIsEditing] = useState(false)
+  // REQ-UX-007-015: 로컬 isEditing 제거 — 전역 편집 모드 사용
+  const { isEditing } = useEditMode()
 
-  // 카드 외부 클릭 시 편집 모드 종료 (EDGE-003)
+  // REQ-UX-007-016: 카드 외부 클릭 cleanup useEffect 제거 (전역 토글로 통일)
   const cardRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!isEditing) return
-    const handleOutsideClick = (e: MouseEvent): void => {
-      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
-        setIsEditing(false)
-      }
-    }
-    document.addEventListener('mousedown', handleOutsideClick)
-    return () => document.removeEventListener('mousedown', handleOutsideClick)
-  }, [isEditing])
 
-  // REQ-UX-006-010: 모바일 long-press 250ms, 데스크탑 즉시 활성
+  // REQ-UX-007-018: 카테고리 자체 useSortable — 편집 모드 OFF 시 disabled
+  // (WidgetLayout의 카테고리 SortableContext 내에서 동작, D2 격리 구조)
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: category.id, disabled: !isEditing })
+
+  const sortableStyle: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  }
+
+  // REQ-UX-006-010: 링크 내부 정렬 — 모바일 long-press 250ms, 데스크탑 즉시 활성 (SPEC-UX-006 패턴 유지)
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { delay: 250, tolerance: 5 },
     }),
   )
 
-  // REQ-UX-006-011: 드래그 종료 시 순서 변경 → bookmarkStore 영속화
+  // REQ-UX-006-011: 링크 드래그 종료 시 순서 변경 → bookmarkStore 영속화
   const handleDragEnd = (event: DragEndEvent): void => {
     const { active, over } = event
     if (!over || active.id === over.id) return
@@ -68,8 +80,9 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): J
 
   return (
     <div
-      ref={cardRef}
+      ref={setNodeRef}
       style={{
+        ...sortableStyle,
         background: 'var(--card-bg)',
         borderRadius: 16,
         padding: '18px 20px',
@@ -82,21 +95,27 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): J
         flexDirection: 'column',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-2px)'
-        e.currentTarget.style.boxShadow = '0 8px 24px var(--shadow)'
+        e.currentTarget.style.transform = isDragging ? '' : 'translateY(-2px)'
+        e.currentTarget.style.boxShadow = isDragging ? '' : '0 8px 24px var(--shadow)'
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.transform = ''
         e.currentTarget.style.boxShadow = ''
       }}
     >
+      {/* 카테고리 헤더 — REQ-UX-007-010: widget-drag-handle 역할 + useSortable listeners */}
       <div
+        ref={cardRef}
+        className="widget-drag-handle"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: 14,
+          cursor: isEditing ? 'grab' : 'default',
         }}
+        // REQ-UX-007-012: 편집 모드에서만 카테고리 드래그 활성 (D2)
+        {...(isEditing ? { ...attributes, ...listeners } : {})}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 20 }}>{category.icon}</span>
@@ -110,15 +129,12 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): J
             {category.name}
           </span>
         </div>
+        {/* REQ-UX-007-015: ⚙️ 버튼 — 카테고리 메타 편집 모달 열기만 담당 */}
         <button
-          onClick={() => {
-            // 편집 모드 토글: 편집 모드 진입은 isEditing 토글, 종료는 onEdit 도 호출
-            if (isEditing) {
-              setIsEditing(false)
-            } else {
-              setIsEditing(true)
-              onEdit(category)
-            }
+          onClick={(e) => {
+            // dnd-kit의 포인터 이벤트와 충돌 방지
+            e.stopPropagation()
+            onEdit(category)
           }}
           data-hover-reveal
           style={{
@@ -126,8 +142,9 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): J
             border: 'none',
             cursor: 'pointer',
             fontSize: 14,
-            opacity: isEditing ? 1 : 0.35,
-            color: isEditing ? 'var(--accent)' : 'var(--text-primary)',
+            // REQ-UX-007-015: 편집 모드 ON일 때만 노출 (opacity 0/1)
+            opacity: isEditing ? 1 : 0,
+            color: 'var(--accent)',
             // SPEC-MOBILE-RESPONSIVE-001: 모바일 터치 hit-area
             minWidth: 44,
             minHeight: 44,
@@ -139,7 +156,7 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): J
         </button>
       </div>
 
-      {/* REQ-UX-006-008/009: 편집 모드에서만 dnd 활성화 */}
+      {/* REQ-UX-006-008/009: 링크 내부 dnd는 별도 DndContext로 격리 (D2) */}
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <SortableContext items={linkIds} strategy={rectSortingStrategy}>
           <div
