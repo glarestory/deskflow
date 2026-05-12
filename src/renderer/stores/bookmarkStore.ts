@@ -94,6 +94,21 @@ interface BookmarkState {
    * - orderedIds에 없는 기존 카테고리는 원래 순서 유지하며 끝에 보존 (idempotent)
    */
   reorderCategories: (orderedIds: string[]) => void
+  // @MX:NOTE: [AUTO] SPEC-UX-008 카테고리 간 링크 이동 — 부가 메타데이터 보존, 영속화 1회
+  /**
+   * SPEC-UX-008 REQ-UX-008-008: 링크를 한 카테고리에서 다른 카테고리로 이동한다.
+   * - fromCategoryId === toCategoryId 이면 no-op
+   * - 소스/타겟 카테고리 또는 링크 부재 시 no-op (idempotent)
+   * - 단일 set 호출로 두 카테고리 동시 갱신 (단일 트랜잭션)
+   * - toIndex clamp(0, toCat.links.length)
+   * - favorite, tags, usage 등 부가 메타데이터 보존 (객체 참조 그대로 이동)
+   */
+  moveLinkBetweenGroups: (
+    linkId: string,
+    fromCategoryId: string,
+    toCategoryId: string,
+    toIndex: number,
+  ) => void
 }
 
 export const useBookmarkStore = create<BookmarkState>((set, get) => ({
@@ -249,6 +264,43 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
     const { loaded, bookmarks } = get()
     if (loaded) {
       void storage.set('hub-bookmarks', JSON.stringify(bookmarks))
+    }
+  },
+
+  moveLinkBetweenGroups: (linkId, fromCategoryId, toCategoryId, toIndex) => {
+    // 같은 카테고리 간 이동은 no-op (단일 그룹 정렬은 updateBookmark가 담당)
+    if (fromCategoryId === toCategoryId) return
+
+    const { bookmarks, loaded } = get()
+    const fromCat = bookmarks.find((b) => b.id === fromCategoryId)
+    const toCat = bookmarks.find((b) => b.id === toCategoryId)
+
+    // 소스 또는 타겟 카테고리 부재 시 no-op
+    if (!fromCat || !toCat) return
+
+    const link = fromCat.links.find((l) => l.id === linkId)
+    // 링크가 소스 카테고리에 없으면 no-op
+    if (!link) return
+
+    const nextFromLinks = fromCat.links.filter((l) => l.id !== linkId)
+    // toIndex clamp(0, toCat.links.length)
+    const clampedIndex = Math.max(0, Math.min(toIndex, toCat.links.length))
+    const nextToLinks = [
+      ...toCat.links.slice(0, clampedIndex),
+      link, // 객체 참조 그대로 이동 — favorite/tags/usage 보존
+      ...toCat.links.slice(clampedIndex),
+    ]
+
+    // 단일 set 호출로 두 카테고리 동시 갱신 (REQ-UX-008-013 단일 트랜잭션)
+    const nextBookmarks = bookmarks.map((b) => {
+      if (b.id === fromCategoryId) return { ...b, links: nextFromLinks }
+      if (b.id === toCategoryId) return { ...b, links: nextToLinks }
+      return b
+    })
+
+    set({ bookmarks: nextBookmarks })
+    if (loaded) {
+      void storage.set('hub-bookmarks', JSON.stringify(nextBookmarks))
     }
   },
 
