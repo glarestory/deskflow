@@ -528,26 +528,26 @@ describe('WidgetLayout SPEC-UX-010 — Undo 단축키 + 자동 종료 + history 
     expect(mockHistoryClear).toHaveBeenCalled()
   })
 
-  // AC-015: 자동 종료 — 30초 경과 후 setEditMode(false) 호출
-  it('편집 모드 ON 후 30초 경과 시 자동 종료된다 (AC-015)', async () => {
+  // AC-015: 자동 종료 — 120초 경과 후 setEditMode(false) 호출 (사용자 피드백으로 30s→120s 연장)
+  it('편집 모드 ON 후 120초 경과 시 자동 종료된다 (AC-015)', async () => {
     const { default: WidgetLayout } = await import('./WidgetLayout')
     mockIsEditing = true
     mockAutoExitEnabled.value = true
     render(<WidgetLayout {...mockHandlers} />)
     act(() => {
-      vi.advanceTimersByTime(30000)
+      vi.advanceTimersByTime(120_000)
     })
     expect(mockSetEditMode).toHaveBeenCalledWith(false)
   })
 
-  // AC-017: autoExitEnabled=false 시 30초 이후에도 자동 종료 미발생
-  it('autoExitEnabled=false 시 60초 경과해도 자동 종료되지 않는다 (AC-017)', async () => {
+  // AC-017: autoExitEnabled=false 시 충분히 긴 시간 경과해도 자동 종료 미발생
+  it('autoExitEnabled=false 시 150초 경과해도 자동 종료되지 않는다 (AC-017)', async () => {
     const { default: WidgetLayout } = await import('./WidgetLayout')
     mockIsEditing = true
     mockAutoExitEnabled.value = false
     render(<WidgetLayout {...mockHandlers} />)
     act(() => {
-      vi.advanceTimersByTime(60000)
+      vi.advanceTimersByTime(150_000)
     })
     expect(mockSetEditMode).not.toHaveBeenCalledWith(false)
   })

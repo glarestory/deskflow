@@ -70,7 +70,7 @@ export default function EditModeToast({
       <span style={{ fontSize: 13, color: 'var(--text-primary, #e0e0e0)', flex: 1 }}>
         {variant === 'undo'
           ? '편집 내용이 변경되었습니다.'
-          : '30초 후 편집 모드가 자동 종료됩니다.'}
+          : '2분 후 편집 모드가 자동 종료됩니다.'}
       </span>
 
       {/* variant="undo" 시만 실행 취소 버튼 표시 */}

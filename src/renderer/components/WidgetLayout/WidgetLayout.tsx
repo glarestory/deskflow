@@ -371,13 +371,43 @@ export default function WidgetLayout({
     prevIsEditingRef.current = isEditing
   }, [isEditing])
 
-  // SPEC-UX-010 REQ-UX-010-008: 편집 모드 자동 종료 — 30초 타이머 (autoExitEnabled)
+  // SPEC-UX-010 REQ-UX-010-008: 편집 모드 자동 종료 + 카운트다운 표시 + 활동 시 리셋
+  // 사용자 피드백 반영: 30초 → 120초로 연장, 남은 시간을 편집 버튼에 표시,
+  // 위젯 영역에서 pointer/keyboard 활동 시 타이머 리셋
+  const AUTO_EXIT_SECONDS = 120
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(AUTO_EXIT_SECONDS)
+  const lastActivityRef = useRef<number>(Date.now())
+
   useEffect(() => {
-    if (!isEditing || !autoExitEnabled) return
-    const timerId = setTimeout(() => {
-      setEditMode(false)
-    }, 30000)
-    return () => clearTimeout(timerId)
+    if (!isEditing || !autoExitEnabled) {
+      setRemainingSeconds(AUTO_EXIT_SECONDS)
+      return
+    }
+    lastActivityRef.current = Date.now()
+    setRemainingSeconds(AUTO_EXIT_SECONDS)
+
+    // 1초마다 남은 시간 계산, 0 도달 시 편집 모드 종료
+    const intervalId = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - lastActivityRef.current) / 1000)
+      const remaining = Math.max(0, AUTO_EXIT_SECONDS - elapsed)
+      setRemainingSeconds(remaining)
+      if (remaining === 0) {
+        setEditMode(false)
+      }
+    }, 1000)
+
+    // 사용자 활동(pointer/key) 시 타이머 리셋
+    const onActivity = (): void => {
+      lastActivityRef.current = Date.now()
+    }
+    document.addEventListener('pointerdown', onActivity, true)
+    document.addEventListener('keydown', onActivity, true)
+
+    return () => {
+      clearInterval(intervalId)
+      document.removeEventListener('pointerdown', onActivity, true)
+      document.removeEventListener('keydown', onActivity, true)
+    }
   }, [isEditing, autoExitEnabled, setEditMode])
 
   const handlePivotModeClick = (): void => {
@@ -643,7 +673,28 @@ export default function WidgetLayout({
               }}
             >
               {isEditing ? <Check size={14} /> : <Pencil size={14} />}
-              {isEditing ? '완료' : '편집'}
+              {isEditing ? (
+                <>
+                  완료
+                  {autoExitEnabled && (
+                    <span
+                      data-testid="edit-mode-countdown"
+                      aria-label={`자동 종료까지 ${remainingSeconds}초 남음`}
+                      style={{
+                        marginLeft: 6,
+                        fontSize: 11,
+                        opacity: 0.85,
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      {Math.floor(remainingSeconds / 60)}:
+                      {String(remainingSeconds % 60).padStart(2, '0')}
+                    </span>
+                  )}
+                </>
+              ) : (
+                '편집'
+              )}
             </button>
             {/* T-005: SPEC-UX-005 — Pivot 모드 전환 버튼 */}
             <button
