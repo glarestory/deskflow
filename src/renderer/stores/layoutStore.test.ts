@@ -11,6 +11,16 @@ vi.mock('../lib/storage', () => ({
   },
 }))
 
+// editHistoryStore 모킹 — SPEC-UX-010 M2 snapshot push 검증용
+const mockHistoryPush = vi.fn()
+vi.mock('./editHistoryStore', () => ({
+  useEditHistoryStore: {
+    getState: vi.fn(() => ({
+      push: mockHistoryPush,
+    })),
+  },
+}))
+
 describe('layoutStore', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
@@ -190,5 +200,20 @@ describe('layoutStore', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(mockSet).toHaveBeenCalledWith('widget-layout', JSON.stringify(DEFAULT_LAYOUT))
+  })
+
+  // SPEC-UX-010 M2: updateLayout 시 snapshot push 검증 (AC-008)
+  it('updateLayout 호출 전 editHistoryStore.push가 1회 호출된다 (AC-008)', async () => {
+    mockGet.mockResolvedValue({ value: null })
+    mockSet.mockResolvedValue(undefined)
+    mockHistoryPush.mockClear()
+    const { useLayoutStore } = await import('./layoutStore')
+
+    const newLayout = [{ i: 'clock', x: 1, y: 1, w: 5, h: 3 }]
+    useLayoutStore.getState().updateLayout(newLayout)
+
+    expect(mockHistoryPush).toHaveBeenCalledOnce()
+    const callArg = mockHistoryPush.mock.calls[0][0] as { type: string }
+    expect(callArg.type).toBe('layout')
   })
 })

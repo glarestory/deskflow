@@ -11,13 +11,14 @@ import {
   DragOverlay,
   closestCorners,
   PointerSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
-import { SortableContext, arrayMove, rectSortingStrategy } from '@dnd-kit/sortable'
+import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import type { Category, Link } from '../../types'
 import type { WidgetLayout as WidgetLayoutItem } from '../../stores/layoutStore'
 import { useBookmarkStore } from '../../stores/bookmarkStore'
@@ -26,6 +27,10 @@ import { useLayoutStore } from '../../stores/layoutStore'
 import { useAuthStore } from '../../stores/authStore'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useEditMode } from '../../stores/editModeStore'
+// SPEC-UX-010 REQ-UX-010-003: 편집 히스토리 undo/clear 통합
+import { useEditHistoryStore } from '../../stores/editHistoryStore'
+// SPEC-UX-010 REQ-UX-010-012: 드래그 시작 시 햅틱 피드백
+import { tryHaptic } from '../../utils/haptic'
 import Clock from '../Clock/Clock'
 import SearchBar from '../SearchBar/SearchBar'
 import BookmarkCard from '../BookmarkCard/BookmarkCard'
@@ -34,6 +39,8 @@ import NotesWidget from '../NotesWidget/NotesWidget'
 import FeedWidget from '../FeedWidget/FeedWidget'
 import CapsuleSwitcher from '../CapsuleSwitcher/CapsuleSwitcher'
 import HeaderMoreMenu from './HeaderMoreMenu'
+// REQ-UX-009-003: 위젯 핸들 슬롯 컴포넌트
+import { DragHandleSlot } from '../common/DragHandleSlot'
 
 // @MX:NOTE: [AUTO] WidthProvider가 컨테이너 너비를 자동 측정하여 Responsive 그리드에 주입
 const ResponsiveGridLayout = WidthProvider(Responsive)
@@ -101,16 +108,20 @@ export default function WidgetLayout({
   const { user, signOut } = useAuthStore()
   const isMobile = useIsMobile()
   // REQ-UX-007-001: 전역 편집 모드 상태
-  const { isEditing, toggle: toggleEditMode, set: setEditMode } = useEditMode()
+  const { isEditing, toggle: toggleEditMode, set: setEditMode, autoExitEnabled } = useEditMode()
 
   // REQ-UX-006-003: 현재 브레이크포인트 상태 (Responsive onBreakpointChange 콜백에서 갱신)
   const [currentBreakpoint, setCurrentBreakpoint] = useState<string>('lg')
 
   // REQ-UX-008-001: 카테고리+링크 통합 단일 DndContext 센서
   // REQ-UX-006-010 패턴 유지 — delay 250ms, tolerance 5 (모바일 long-press, NFR-003)
+  // REQ-UX-009-003 (M5): KeyboardSensor 추가 — 핸들 포커스 후 Space/Enter 드래그 활성화 (WCAG 2.1.1)
   const categorySensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { delay: 250, tolerance: 5 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
     }),
   )
 
@@ -125,8 +136,11 @@ export default function WidgetLayout({
   const [activeLink, setActiveLink] = useState<Link | null>(null)
 
   // REQ-UX-008-001: onDragStart — active 항목 종류 분기, 원본 카테고리 기억
+  // SPEC-UX-010 REQ-UX-010-012: 드래그 시작 시 햅틱 피드백
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
+      // 모바일 드래그 시작 시 10ms 햅틱 (REQ-UX-010-012)
+      tryHaptic(10)
       const { active } = event
       if (active.data.current?.type === 'link') {
         const categoryId = active.data.current.categoryId as string
@@ -291,6 +305,8 @@ export default function WidgetLayout({
   const draggingCount = useMemo(() => ({ value: 0 }), [])
 
   const onDragStart = useCallback(() => {
+    // SPEC-UX-010 REQ-UX-010-012: 위젯 드래그 시작 시 햅틱 피드백
+    tryHaptic(10)
     draggingCount.value += 1
     document.body.classList.add('is-dragging-widget')
   }, [draggingCount])
@@ -329,6 +345,40 @@ export default function WidgetLayout({
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isEditing, setEditMode])
+
+  // SPEC-UX-010 REQ-UX-010-001: Cmd+Z / Ctrl+Z Undo 단축키 (편집 모드 ON 한정)
+  // EDGE-004: input/textarea/select 포커스 중에는 브라우저 기본 undo 허용
+  useEffect(() => {
+    if (!isEditing) return
+    const handleUndoKey = (e: KeyboardEvent): void => {
+      if (!(e.metaKey || e.ctrlKey) || e.key !== 'z' || e.shiftKey) return
+      // input/textarea/select 포커스 중에는 undo 단축키 무시
+      const tag = (document.activeElement as HTMLElement | null)?.tagName?.toUpperCase()
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      e.preventDefault()
+      useEditHistoryStore.getState().undo()
+    }
+    window.addEventListener('keydown', handleUndoKey)
+    return () => window.removeEventListener('keydown', handleUndoKey)
+  }, [isEditing])
+
+  // SPEC-UX-010 REQ-UX-010-002: 편집 모드 OFF 전환 시 히스토리 clear (EDGE-002)
+  const prevIsEditingRef = useRef<boolean>(isEditing)
+  useEffect(() => {
+    if (prevIsEditingRef.current && !isEditing) {
+      useEditHistoryStore.getState().clear()
+    }
+    prevIsEditingRef.current = isEditing
+  }, [isEditing])
+
+  // SPEC-UX-010 REQ-UX-010-008: 편집 모드 자동 종료 — 30초 타이머 (autoExitEnabled)
+  useEffect(() => {
+    if (!isEditing || !autoExitEnabled) return
+    const timerId = setTimeout(() => {
+      setEditMode(false)
+    }, 30000)
+    return () => clearTimeout(timerId)
+  }, [isEditing, autoExitEnabled, setEditMode])
 
   const handlePivotModeClick = (): void => {
     onTogglePivotMode()
@@ -673,13 +723,25 @@ export default function WidgetLayout({
           onDragStart={onDragStart}
           onDragStop={onDragStop}
         >
-          {/* Clock 위젯 — REQ-UX-007-010: 헤더 없으므로 셀 래퍼에 drag-handle 부여 (D1) */}
-          <div key="clock" className="widget-drag-handle" style={{ background: 'transparent' }}>
+          {/* Clock 위젯 — REQ-UX-007-010: 헤더 없으므로 셀 래퍼에 drag-handle 부여 (D1)
+              REQ-UX-009-003: DragHandleSlot level="widget" 추가 (시각 마커, 절대 위치) */}
+          <div key="clock" className="widget-drag-handle" style={{ background: 'transparent', position: 'relative' }}>
+            <DragHandleSlot
+              level="widget"
+              ariaLabel="위젯 이동: 시계"
+              isEditing={isEditing && !isMobile && !isMobileBreakpoint}
+            />
             <Clock />
           </div>
 
-          {/* SearchBar 위젯 — 데스크탑에서만 그리드 내부에 표시 (REQ-UX-007-010: 셀 래퍼에 drag-handle) */}
-          <div key="search" className="widget-drag-handle" style={{ background: 'transparent' }}>
+          {/* SearchBar 위젯 — 데스크탑에서만 그리드 내부에 표시 (REQ-UX-007-010: 셀 래퍼에 drag-handle)
+              REQ-UX-009-003: DragHandleSlot level="widget" 추가 (시각 마커, 절대 위치) */}
+          <div key="search" className="widget-drag-handle" style={{ background: 'transparent', position: 'relative' }}>
+            <DragHandleSlot
+              level="widget"
+              ariaLabel="위젯 이동: 검색"
+              isEditing={isEditing && !isMobile && !isMobileBreakpoint}
+            />
             {!isMobile && <SearchBar />}
           </div>
 
@@ -699,19 +761,26 @@ export default function WidgetLayout({
             }}
           >
             {/* 즐겨찾기 위젯 타이틀 — react-grid-layout 전용 드래그 핸들 (BookmarkCard 카테고리 헤더와 분리)
-                widget-drag-handle 클래스는 위젯 타이틀에만 부여하여 내부 dnd-kit DnD와의 충돌 제거 */}
+                widget-drag-handle 클래스는 위젯 타이틀에만 부여하여 내부 dnd-kit DnD와의 충돌 제거
+                REQ-UX-009-003: DragHandleSlot level="widget" 추가 (시각 마커) */}
             <div
               className="widget-drag-handle"
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 8,
-                padding: '14px 20px 10px',
+                padding: '2px 20px 2px 0',
                 cursor: isEditing && !isMobile && !isMobileBreakpoint ? 'grab' : 'default',
                 userSelect: 'none',
                 borderBottom: '1px solid var(--border)',
               }}
             >
+              {/* REQ-UX-009-003: 위젯 핸들 시각 마커 — 타이틀 좌측에 GripVertical 아이콘 */}
+              <DragHandleSlot
+                level="widget"
+                ariaLabel="위젯 이동: 즐겨찾기"
+                isEditing={isEditing && !isMobile && !isMobileBreakpoint}
+              />
               <span style={{ fontSize: 18 }}>⭐</span>
               <span
                 style={{

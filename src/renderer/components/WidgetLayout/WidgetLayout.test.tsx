@@ -1,4 +1,4 @@
-// @MX:SPEC: SPEC-UX-005, SPEC-UX-007, SPEC-UX-008
+// @MX:SPEC: SPEC-UX-005, SPEC-UX-007, SPEC-UX-008, SPEC-UX-010
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
 import '@testing-library/jest-dom'
@@ -23,19 +23,62 @@ vi.mock('react-grid-layout/legacy', () => {
   return { default: MockGridLayout, Responsive: MockGridLayout, WidthProvider }
 })
 
-// editModeStore 모킹 (M2: SPEC-UX-007)
-vi.mock('../../stores/editModeStore', () => {
-  let isEditing = false
-  const toggle = vi.fn(() => { isEditing = !isEditing })
-  const set = vi.fn((v: boolean) => { isEditing = v })
-  return {
-    useEditModeStore: Object.assign(
-      () => ({ isEditing, toggle, set }),
-      { getState: () => ({ isEditing, toggle, set }) }
-    ),
-    useEditMode: () => ({ isEditing, toggle, set }),
-  }
-})
+// editModeStore 모킹 (M2: SPEC-UX-007, M3: SPEC-UX-010)
+let mockIsEditing = false
+const mockToggleEditMode = vi.fn(() => { mockIsEditing = !mockIsEditing })
+const mockSetEditMode = vi.fn((v: boolean) => { mockIsEditing = v })
+const mockAutoExitEnabled = { value: true }
+const mockHideEmptyCategories = { value: false }
+vi.mock('../../stores/editModeStore', () => ({
+  useEditModeStore: Object.assign(
+    () => ({
+      isEditing: mockIsEditing,
+      toggle: mockToggleEditMode,
+      set: mockSetEditMode,
+      autoExitEnabled: mockAutoExitEnabled.value,
+      hideEmptyCategories: mockHideEmptyCategories.value,
+      setAutoExitEnabled: vi.fn(),
+      setHideEmptyCategories: vi.fn(),
+    }),
+    {
+      getState: () => ({
+        isEditing: mockIsEditing,
+        toggle: mockToggleEditMode,
+        set: mockSetEditMode,
+        autoExitEnabled: mockAutoExitEnabled.value,
+        hideEmptyCategories: mockHideEmptyCategories.value,
+        setAutoExitEnabled: vi.fn(),
+        setHideEmptyCategories: vi.fn(),
+      }),
+    }
+  ),
+  useEditMode: () => ({
+    isEditing: mockIsEditing,
+    toggle: mockToggleEditMode,
+    set: mockSetEditMode,
+    autoExitEnabled: mockAutoExitEnabled.value,
+    hideEmptyCategories: mockHideEmptyCategories.value,
+    setAutoExitEnabled: vi.fn(),
+    setHideEmptyCategories: vi.fn(),
+  }),
+}))
+
+// editHistoryStore 모킹 — SPEC-UX-010 M3
+const mockHistoryUndo = vi.fn(() => null)
+const mockHistoryClear = vi.fn()
+const mockHistoryPush = vi.fn()
+vi.mock('../../stores/editHistoryStore', () => ({
+  useEditHistoryStore: {
+    getState: vi.fn(() => ({
+      undo: mockHistoryUndo,
+      redo: vi.fn(),
+      clear: mockHistoryClear,
+      push: mockHistoryPush,
+      past: [],
+      future: [],
+    })),
+  },
+}))
 
 // 스토어 모킹 — SPEC-UX-008: moveLinkBetweenGroups, reorderCategories 포함
 const mockUpdateBookmark = vi.fn()
@@ -147,6 +190,9 @@ describe('WidgetLayout (SPEC-UX-005)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockIsEditing = false
+    mockAutoExitEnabled.value = true
+    mockHideEmptyCategories.value = false
   })
 
   // T-003: WidgetLayout이 렌더링된다
@@ -340,5 +386,169 @@ describe('WidgetLayout SPEC-UX-008 — bookmarkStore 액션 연결 확인', () =
     // 초기 렌더링 시 DnD 액션이 호출되지 않아야 함
     expect(mockUpdateBookmark).not.toHaveBeenCalled()
     expect(mockMoveLinkBetweenGroups).not.toHaveBeenCalled()
+  })
+})
+
+// ─── SPEC-UX-009: 위젯 핸들 시각 마커 테스트 ──────────────────────────────
+describe('WidgetLayout SPEC-UX-009 — 위젯 핸들 시각 마커', () => {
+  const mockHandlers = {
+    handleAddCategory: vi.fn(),
+    handleLayoutChange: vi.fn(),
+    onOpenImport: vi.fn(),
+    onOpenQuickCapture: vi.fn(),
+    onOpenDedup: vi.fn(),
+    onSetEditingCategory: vi.fn(),
+    onTogglePivotMode: vi.fn(),
+    onOpenCapsuleList: vi.fn(),
+    onOpenCreateCapsule: vi.fn(),
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  // REQ-UX-009-002: 단일 DndContext 보존 (AC-002)
+  it('DndContext가 추가로 신설되지 않아야 한다 (REQ-UX-009-002, AC-002)', async () => {
+    const { default: WidgetLayout } = await import('./WidgetLayout')
+    render(<WidgetLayout {...mockHandlers} />)
+    expect(screen.getByText('My Hub')).toBeInTheDocument()
+  })
+
+  // REQ-UX-009-009: widget-drag-handle 클래스가 즐겨찾기 타이틀에 유지됨 (AC-014)
+  it('즐겨찾기 타이틀에 widget-drag-handle 클래스가 유지되어야 한다 (REQ-UX-009-009)', async () => {
+    const { default: WidgetLayout } = await import('./WidgetLayout')
+    render(<WidgetLayout {...mockHandlers} />)
+    const handles = document.querySelectorAll('.widget-drag-handle')
+    expect(handles.length).toBeGreaterThan(0)
+  })
+
+  // REQ-UX-009-003: 즐겨찾기 위젯 타이틀에 data-widget-handle 핸들 슬롯 존재 (AC-003)
+  it('즐겨찾기 위젯 타이틀에 data-widget-handle 핸들 슬롯이 존재해야 한다 (REQ-UX-009-003, AC-003)', async () => {
+    const { default: WidgetLayout } = await import('./WidgetLayout')
+    render(<WidgetLayout {...mockHandlers} />)
+    const widgetHandles = document.querySelectorAll('[data-widget-handle]')
+    expect(widgetHandles.length).toBeGreaterThan(0)
+  })
+})
+
+// ─── SPEC-UX-010 M3: Cmd+Z Undo 단축키 + 자동 종료 타이머 + history clear ───
+describe('WidgetLayout SPEC-UX-010 — Undo 단축키 + 자동 종료 + history clear', () => {
+  const mockHandlers = {
+    handleAddCategory: vi.fn(),
+    handleLayoutChange: vi.fn(),
+    onOpenImport: vi.fn(),
+    onOpenQuickCapture: vi.fn(),
+    onOpenDedup: vi.fn(),
+    onSetEditingCategory: vi.fn(),
+    onTogglePivotMode: vi.fn(),
+    onOpenCapsuleList: vi.fn(),
+    onOpenCreateCapsule: vi.fn(),
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockIsEditing = false
+    mockAutoExitEnabled.value = true
+    mockHideEmptyCategories.value = false
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  // AC-014: 편집 모드 OFF 상태에서 Cmd+Z → undo 미호출
+  it('편집 모드 OFF일 때 Cmd+Z 입력 시 undo가 호출되지 않는다 (AC-014)', async () => {
+    const { default: WidgetLayout } = await import('./WidgetLayout')
+    render(<WidgetLayout {...mockHandlers} />)
+    mockIsEditing = false
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', metaKey: true, bubbles: true }))
+    })
+    expect(mockHistoryUndo).not.toHaveBeenCalled()
+  })
+
+  // AC-009: 편집 모드 ON 상태에서 Cmd+Z → undo 호출
+  it('편집 모드 ON일 때 Cmd+Z 입력 시 undo가 호출된다 (AC-009)', async () => {
+    const { default: WidgetLayout } = await import('./WidgetLayout')
+    mockIsEditing = true
+    render(<WidgetLayout {...mockHandlers} />)
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', metaKey: true, bubbles: true }))
+    })
+    expect(mockHistoryUndo).toHaveBeenCalledOnce()
+  })
+
+  // AC-010: Ctrl+Z → undo 호출 (편집 모드 ON)
+  it('편집 모드 ON일 때 Ctrl+Z 입력 시 undo가 호출된다 (AC-010)', async () => {
+    const { default: WidgetLayout } = await import('./WidgetLayout')
+    mockIsEditing = true
+    render(<WidgetLayout {...mockHandlers} />)
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }))
+    })
+    expect(mockHistoryUndo).toHaveBeenCalledOnce()
+  })
+
+  // AC-011: Cmd+Shift+Z → undo 미호출 (redo 단축키는 별도 처리)
+  it('Cmd+Shift+Z 입력 시 undo가 호출되지 않는다 (AC-011)', async () => {
+    const { default: WidgetLayout } = await import('./WidgetLayout')
+    mockIsEditing = true
+    render(<WidgetLayout {...mockHandlers} />)
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', metaKey: true, shiftKey: true, bubbles: true }))
+    })
+    expect(mockHistoryUndo).not.toHaveBeenCalled()
+  })
+
+  // EDGE-004: input 요소에 포커스된 상태에서 Cmd+Z → undo 미호출
+  it('input에 포커스된 상태에서 Cmd+Z 입력 시 undo가 호출되지 않는다 (EDGE-004)', async () => {
+    const { default: WidgetLayout } = await import('./WidgetLayout')
+    mockIsEditing = true
+    render(<WidgetLayout {...mockHandlers} />)
+    // input 요소 생성 후 포커스
+    const input = document.createElement('input')
+    document.body.appendChild(input)
+    input.focus()
+    act(() => {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', metaKey: true, bubbles: true }))
+    })
+    expect(mockHistoryUndo).not.toHaveBeenCalled()
+    document.body.removeChild(input)
+  })
+
+  // EDGE-002: isEditing false 전환 시 editHistoryStore.clear() 호출
+  it('편집 모드가 OFF로 전환될 때 editHistoryStore.clear()가 호출된다 (EDGE-002)', async () => {
+    const { default: WidgetLayout } = await import('./WidgetLayout')
+    mockIsEditing = true
+    const { rerender } = render(<WidgetLayout {...mockHandlers} />)
+    // isEditing false로 전환 시뮬레이션
+    mockIsEditing = false
+    rerender(<WidgetLayout {...mockHandlers} />)
+    expect(mockHistoryClear).toHaveBeenCalled()
+  })
+
+  // AC-015: 자동 종료 — 30초 경과 후 setEditMode(false) 호출
+  it('편집 모드 ON 후 30초 경과 시 자동 종료된다 (AC-015)', async () => {
+    const { default: WidgetLayout } = await import('./WidgetLayout')
+    mockIsEditing = true
+    mockAutoExitEnabled.value = true
+    render(<WidgetLayout {...mockHandlers} />)
+    act(() => {
+      vi.advanceTimersByTime(30000)
+    })
+    expect(mockSetEditMode).toHaveBeenCalledWith(false)
+  })
+
+  // AC-017: autoExitEnabled=false 시 30초 이후에도 자동 종료 미발생
+  it('autoExitEnabled=false 시 60초 경과해도 자동 종료되지 않는다 (AC-017)', async () => {
+    const { default: WidgetLayout } = await import('./WidgetLayout')
+    mockIsEditing = true
+    mockAutoExitEnabled.value = false
+    render(<WidgetLayout {...mockHandlers} />)
+    act(() => {
+      vi.advanceTimersByTime(60000)
+    })
+    expect(mockSetEditMode).not.toHaveBeenCalledWith(false)
   })
 })

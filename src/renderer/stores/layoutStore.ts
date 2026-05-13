@@ -4,6 +4,8 @@
 import { create } from 'zustand'
 import { storage } from '../lib/storage'
 import { migrateLayoutToResponsive } from '../lib/layoutMigration'
+// SPEC-UX-010 REQ-UX-010-003: 편집 히스토리 push 통합
+import { useEditHistoryStore } from './editHistoryStore'
 
 // 레이아웃 스토리지 키
 const LAYOUT_STORAGE_KEY = 'widget-layout'
@@ -42,7 +44,7 @@ interface LayoutState {
   resetLayout: () => void
 }
 
-export const useLayoutStore = create<LayoutState>((set) => ({
+export const useLayoutStore = create<LayoutState>((set, get) => ({
   layout: DEFAULT_LAYOUT,
   loaded: false,
 
@@ -65,6 +67,9 @@ export const useLayoutStore = create<LayoutState>((set) => ({
   },
 
   updateLayout: (layout) => {
+    // REQ-UX-010-003: 변경 직전 상태를 히스토리에 push
+    const prev = get().layout
+    useEditHistoryStore.getState().push({ type: 'layout', layout: prev })
     set({ layout })
     void storage.set(LAYOUT_STORAGE_KEY, JSON.stringify(layout))
   },

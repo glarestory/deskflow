@@ -1,6 +1,6 @@
 // BookmarkCard — 카테고리 북마크 카드 (SPEC-UX-007: 전역 편집 모드 통합, useSortable 지원)
 // @MX:NOTE: [AUTO] BookmarkCard — 카테고리 북마크 카드, dnd-kit 정렬 편집 모드 포함
-// @MX:SPEC: SPEC-UI-001, SPEC-UX-002, SPEC-UX-006, SPEC-UX-007, SPEC-UX-008
+// @MX:SPEC: SPEC-UI-001, SPEC-UX-002, SPEC-UX-006, SPEC-UX-007, SPEC-UX-008, SPEC-UX-009
 import React, { useRef } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import {
@@ -13,6 +13,8 @@ import { useUsageStore } from '../../stores/usageStore'
 import { useEditMode } from '../../stores/editModeStore'
 import type { Category } from '../../types'
 import SortableLink from './SortableLink'
+// REQ-UX-009-004: 그룹 핸들 슬롯 컴포넌트
+import { DragHandleSlot } from '../common/DragHandleSlot'
 
 interface BookmarkCardProps {
   category: Category
@@ -80,7 +82,8 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
       {/* 카테고리 헤더 — REQ-UX-007-010: useSortable listeners 만 사용
           SPEC-UX-008 FIX: 위젯 자체 드래그 핸들(widget-drag-handle) 클래스 제거.
           이전에는 react-grid-layout(.widget-drag-handle) 과 dnd-kit useSortable 이 동일 요소에서
-          포인터 이벤트를 경쟁해 그룹/링크 DnD 가 깨졌다. 위젯 자체는 위젯 상단 "즐겨찾기" 타이틀로 분리. */}
+          포인터 이벤트를 경쟁해 그룹/링크 DnD 가 깨졌다. 위젯 자체는 위젯 상단 "즐겨찾기" 타이틀로 분리.
+          REQ-UX-009-007: listeners는 핸들 슬롯(DragHandleSlot)에만 spread — 헤더 전체 제거. */}
       <div
         ref={cardRef}
         data-category-handle
@@ -89,11 +92,18 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: 14,
-          cursor: isEditing ? 'grab' : 'default',
+          cursor: 'default',
         }}
-        // REQ-UX-007-012: 편집 모드에서만 카테고리 드래그 활성
-        {...(isEditing ? { ...attributes, ...listeners } : {})}
       >
+        {/* REQ-UX-009-004: 그룹 핸들 슬롯 — 헤더의 첫 자식, 카테고리 아이콘 좌측
+            listeners를 이 슬롯에만 spread하여 카테고리 아이콘/이름 클릭과 분리 */}
+        <DragHandleSlot
+          level="group"
+          ariaLabel={`카테고리 이동: ${category.name}`}
+          attributes={attributes as Record<string, unknown>}
+          listeners={listeners as Record<string, unknown>}
+          isEditing={isEditing}
+        />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 20 }}>{category.icon}</span>
           <span
@@ -162,6 +172,27 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
               categoryId={category.id}
             />
           ))}
+          {/* SPEC-UX-010 REQ-UX-010-011: 빈 카테고리 placeholder (D5) */}
+          {category.links.length === 0 && (
+            <div
+              data-empty-placeholder
+              style={{
+                gridColumn: '1 / -1',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '12px 8px',
+                border: '1.5px dashed var(--border)',
+                borderRadius: 8,
+                color: 'var(--text-muted)',
+                fontSize: 12,
+                minHeight: 48,
+                userSelect: 'none',
+              }}
+            >
+              {isEditing ? '여기로 드래그하여 추가' : '북마크가 없습니다'}
+            </div>
+          )}
         </div>
       </SortableContext>
     </div>

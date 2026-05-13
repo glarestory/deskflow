@@ -118,4 +118,75 @@ describe('BookmarkCard (SPEC-UX-006 + SPEC-UX-007)', () => {
     const gridDiv = gmailEl?.parentElement
     expect(gridDiv).toHaveStyle({ minHeight: '48px' })
   })
+
+  // ─── SPEC-UX-009: 그룹 핸들 분리 테스트 ─────────────────────────────────
+
+  // REQ-UX-009-004: data-group-handle 속성 요소가 정확히 1개 존재
+  it('data-group-handle 요소가 정확히 1개 존재해야 한다 (REQ-UX-009-004, AC-004)', async () => {
+    await renderCard(mockCategory, true)
+    const handles = document.querySelectorAll('[data-group-handle]')
+    expect(handles).toHaveLength(1)
+  })
+
+  // REQ-UX-009-007: 카테고리 헤더 전체에 listeners가 아닌 핸들 슬롯에만 listeners 제한
+  // — data-category-handle 영역에 listeners가 없어야 함 (핸들 슬롯이 별도 존재)
+  it('카테고리 아이콘/이름 영역에 dnd-kit drag 속성이 없어야 한다 (REQ-UX-009-007)', async () => {
+    await renderCard(mockCategory, true)
+    // 카테고리 이름 span 요소 확인
+    const nameSpan = screen.getByText('Work')
+    // 카테고리 이름 span 자체 또는 그 부모에 role="button"이 없어야 함 (핸들 슬롯이 아님)
+    expect(nameSpan.closest('[data-group-handle]')).toBeNull()
+  })
+
+  // REQ-UX-009-016: aria-label이 "카테고리 이동: {name}" 형식이어야 함 (AC-016)
+  it('그룹 핸들 aria-label이 "카테고리 이동: {category.name}" 형식이어야 한다 (AC-016)', async () => {
+    await renderCard(mockCategory, true)
+    const handle = document.querySelector('[data-group-handle]')
+    expect(handle).toHaveAttribute('aria-label', `카테고리 이동: ${mockCategory.name}`)
+  })
+
+  // REQ-UX-009-006: 편집 모드 OFF 시 그룹 핸들 tabIndex=-1
+  it('편집 모드 OFF 시 그룹 핸들 tabIndex=-1이어야 한다 (REQ-UX-009-006, AC-006)', async () => {
+    await renderCard(mockCategory, false)
+    const handle = document.querySelector('[data-group-handle]')
+    expect(handle).toHaveAttribute('tabindex', '-1')
+  })
+
+  // REQ-UX-009-006: 편집 모드 ON 시 그룹 핸들 tabIndex=0
+  it('편집 모드 ON 시 그룹 핸들 tabIndex=0이어야 한다 (REQ-UX-009-006, AC-007)', async () => {
+    await renderCard(mockCategory, true)
+    const handle = document.querySelector('[data-group-handle]')
+    expect(handle).toHaveAttribute('tabindex', '0')
+  })
+
+  // REQ-UX-009-004: 그룹 핸들이 헤더의 첫 자식이어야 함 (카테고리 아이콘 좌측)
+  it('그룹 핸들이 카테고리 헤더의 첫 번째 자식이어야 한다 (REQ-UX-009-004)', async () => {
+    await renderCard(mockCategory, true)
+    const handle = document.querySelector('[data-group-handle]')
+    // 핸들의 부모 요소의 첫 자식이 핸들이어야 함
+    const parent = handle?.parentElement
+    expect(parent?.firstElementChild).toBe(handle)
+  })
+
+  // ─── SPEC-UX-010 M5: 빈 그룹 placeholder ──────────────────────────────────
+
+  // AC-029: 링크가 없는 카테고리에 empty placeholder가 표시된다
+  it('링크가 없는 카테고리에 data-empty-placeholder 요소가 표시된다 (AC-029)', async () => {
+    const emptyCategory: Category = { id: 'empty-1', name: '빈 카테고리', icon: '📂', links: [] }
+    await renderCard(emptyCategory, false)
+    expect(document.querySelector('[data-empty-placeholder]')).toBeInTheDocument()
+  })
+
+  // AC-030: 링크가 있는 카테고리에 empty placeholder가 없다
+  it('링크가 있는 카테고리에는 data-empty-placeholder 요소가 없다 (AC-030)', async () => {
+    await renderCard(mockCategory, false)
+    expect(document.querySelector('[data-empty-placeholder]')).not.toBeInTheDocument()
+  })
+
+  // AC-031: 편집 모드 ON + 빈 카테고리 — placeholder 텍스트가 "여기로 드래그하여 추가"
+  it('편집 모드 ON + 빈 카테고리 시 placeholder 텍스트가 표시된다 (AC-031)', async () => {
+    const emptyCategory: Category = { id: 'empty-1', name: '빈 카테고리', icon: '📂', links: [] }
+    await renderCard(emptyCategory, true)
+    expect(screen.getByText('여기로 드래그하여 추가')).toBeInTheDocument()
+  })
 })

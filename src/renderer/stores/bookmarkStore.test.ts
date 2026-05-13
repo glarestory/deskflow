@@ -27,6 +27,16 @@ vi.mock('./embeddingStore', () => ({
   },
 }))
 
+// editHistoryStore 모킹 — SPEC-UX-010 M2 snapshot push 검증용
+const mockHistoryPush = vi.fn()
+vi.mock('./editHistoryStore', () => ({
+  useEditHistoryStore: {
+    getState: vi.fn(() => ({
+      push: mockHistoryPush,
+    })),
+  },
+}))
+
 describe('bookmarkStore', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
@@ -430,6 +440,67 @@ describe('bookmarkStore', () => {
 
       const ids = useBookmarkStore.getState().bookmarks.map((b) => b.id)
       expect(ids).toEqual(['solo'])
+    })
+  })
+
+  // SPEC-UX-010 M2: snapshot push 통합 테스트 (AC-006, AC-007)
+  describe('SPEC-UX-010 히스토리 snapshot push', () => {
+    beforeEach(() => {
+      mockHistoryPush.mockClear()
+    })
+
+    // AC-006: reorderCategories 호출 시 자동 push
+    it('reorderCategories 호출 전 editHistoryStore.push가 1회 호출된다 (AC-006)', async () => {
+      mockGet.mockResolvedValue({ value: null })
+      const { useBookmarkStore } = await import('./bookmarkStore')
+      useBookmarkStore.setState({
+        bookmarks: [
+          { id: 'A', name: 'A', icon: '📌', links: [] },
+          { id: 'B', name: 'B', icon: '📌', links: [] },
+          { id: 'C', name: 'C', icon: '📌', links: [] },
+        ],
+        loaded: true,
+      })
+
+      useBookmarkStore.getState().reorderCategories(['C', 'A', 'B'])
+
+      expect(mockHistoryPush).toHaveBeenCalledOnce()
+      // snapshot type은 'bookmarks'이어야 함
+      const callArg = mockHistoryPush.mock.calls[0][0] as { type: string }
+      expect(callArg.type).toBe('bookmarks')
+    })
+
+    // AC-007: moveLinkBetweenGroups 호출 시 자동 push
+    it('moveLinkBetweenGroups 호출 전 editHistoryStore.push가 1회 호출된다 (AC-007)', async () => {
+      mockGet.mockResolvedValue({ value: null })
+      const { useBookmarkStore } = await import('./bookmarkStore')
+      useBookmarkStore.setState({
+        bookmarks: [
+          { id: 'cat-1', name: 'Work', icon: '💼', links: [{ id: 'l1', name: 'Gmail', url: 'https://mail.google.com', tags: [] }] },
+          { id: 'cat-2', name: 'Dev', icon: '⚡', links: [] },
+        ],
+        loaded: true,
+      })
+
+      useBookmarkStore.getState().moveLinkBetweenGroups('l1', 'cat-1', 'cat-2', 0)
+
+      expect(mockHistoryPush).toHaveBeenCalledOnce()
+      const callArg = mockHistoryPush.mock.calls[0][0] as { type: string }
+      expect(callArg.type).toBe('bookmarks')
+    })
+
+    // updateBookmark 호출 시 자동 push
+    it('updateBookmark 호출 전 editHistoryStore.push가 1회 호출된다', async () => {
+      mockGet.mockResolvedValue({ value: null })
+      const { useBookmarkStore } = await import('./bookmarkStore')
+      const initial = { id: 'cat-1', name: 'Work', icon: '💼', links: [] }
+      useBookmarkStore.setState({ bookmarks: [initial], loaded: true })
+
+      useBookmarkStore.getState().updateBookmark({ ...initial, name: 'Updated' })
+
+      expect(mockHistoryPush).toHaveBeenCalledOnce()
+      const callArg = mockHistoryPush.mock.calls[0][0] as { type: string }
+      expect(callArg.type).toBe('bookmarks')
     })
   })
 })

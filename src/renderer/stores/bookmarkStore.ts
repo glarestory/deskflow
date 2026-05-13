@@ -9,6 +9,8 @@ import { findDuplicates } from '../lib/bookmarkDedup'
 import { extractTags } from '../lib/extractTags'
 import { useCapsuleStore } from './capsuleStore'
 import { useEmbeddingStore } from './embeddingStore'
+// SPEC-UX-010 REQ-UX-010-003: 편집 히스토리 push 통합
+import { useEditHistoryStore } from './editHistoryStore'
 
 /**
  * 링크에 자동 태그를 병합한다.
@@ -150,6 +152,9 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
   },
 
   updateBookmark: (updated) => {
+    // REQ-UX-010-003: 변경 직전 상태를 히스토리에 push
+    const prev = get().bookmarks
+    useEditHistoryStore.getState().push({ type: 'bookmarks', bookmarks: prev })
     set((state) => ({
       bookmarks: state.bookmarks.map((b) => (b.id === updated.id ? updated : b)),
     }))
@@ -252,6 +257,9 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
   },
 
   reorderCategories: (orderedIds) => {
+    // REQ-UX-010-003: 변경 직전 상태를 히스토리에 push
+    const prev = get().bookmarks
+    useEditHistoryStore.getState().push({ type: 'bookmarks', bookmarks: prev })
     set((state) => {
       // orderedIds 순서대로 매칭되는 카테고리를 앞에 배치
       const ordered = orderedIds
@@ -270,6 +278,9 @@ export const useBookmarkStore = create<BookmarkState>((set, get) => ({
   moveLinkBetweenGroups: (linkId, fromCategoryId, toCategoryId, toIndex) => {
     // 같은 카테고리 간 이동은 no-op (단일 그룹 정렬은 updateBookmark가 담당)
     if (fromCategoryId === toCategoryId) return
+    // REQ-UX-010-003: 변경 직전 상태를 히스토리에 push
+    const prevBookmarks = get().bookmarks
+    useEditHistoryStore.getState().push({ type: 'bookmarks', bookmarks: prevBookmarks })
 
     const { bookmarks, loaded } = get()
     const fromCat = bookmarks.find((b) => b.id === fromCategoryId)
