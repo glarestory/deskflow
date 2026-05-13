@@ -14,7 +14,7 @@ const waitForUI = async (page: Page): Promise<void> => {
 /**
  * 위젯 모드(WidgetLayout) 진입 헬퍼 — Pivot 모드가 기본이므로 위젯 탭 클릭
  */
-const enterWidgetMode = async (page: Page): Promise<void> => {
+const _enterWidgetMode = async (page: Page): Promise<void> => {
   // 위젯 탭이 있으면 클릭, 없으면 이미 위젯 모드
   const widgetTab = page.getByTestId('edit-mode-toggle')
   if (await widgetTab.isVisible({ timeout: 3_000 }).catch(() => false)) {
