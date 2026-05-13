@@ -71,6 +71,13 @@ export default function SortableLink({ link, isEditing, onUsage, categoryId }: S
       target={isEditing ? undefined : '_blank'}
       rel="noopener noreferrer"
       onClick={isEditing ? (e) => e.preventDefault() : () => onUsage(link.id)}
+      // BUGFIX: <a>는 HTML 명세상 draggable=true 기본값. 편집 모드에서 링크 본문을
+      // 잡고 끌면 브라우저 네이티브 드래그가 시작되어 ghost 이미지가 따라다니다
+      // 사라지는 이상 동작 발생. SPEC-UX-009 이전에는 <a>에 dnd-kit listeners가
+      // spread되어 pointerdown에서 preventDefault 처리되었으나, 핸들 분리 이후
+      // 네이티브 드래그를 명시적으로 차단해야 한다.
+      draggable={false}
+      onDragStart={(e) => e.preventDefault()}
       style={style}
       {...attributes}
       onMouseEnter={(e) => {

@@ -122,4 +122,21 @@ describe('SortableLink (SPEC-UX-009 링크 핸들 분리)', () => {
     fireEvent.click(anchor!)
     expect(onUsage).toHaveBeenCalledWith(mockLink.id)
   })
+
+  // BUGFIX 회귀: <a>의 HTML5 네이티브 드래그 방지
+  // SPEC-UX-009 핸들 분리 이후 <a>에 listeners가 spread되지 않아
+  // 네이티브 드래그가 발동되어 ghost 이미지가 따라다니던 버그 회귀 방지
+  it('<a> 요소는 draggable=false여야 한다 (네이티브 드래그 차단)', async () => {
+    await renderLink(mockLink, true)
+    const anchor = screen.getByText('GitHub').closest('a')
+    expect(anchor).toHaveAttribute('draggable', 'false')
+  })
+
+  it('편집 모드에서 <a>의 dragstart 이벤트는 preventDefault 되어야 한다', async () => {
+    await renderLink(mockLink, true)
+    const anchor = screen.getByText('GitHub').closest('a') as HTMLAnchorElement
+    const dragEvent = new Event('dragstart', { bubbles: true, cancelable: true })
+    anchor.dispatchEvent(dragEvent)
+    expect(dragEvent.defaultPrevented).toBe(true)
+  })
 })
