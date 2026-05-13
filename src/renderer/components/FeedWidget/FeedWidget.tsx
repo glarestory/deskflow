@@ -1,7 +1,10 @@
 // @MX:NOTE: [AUTO] FeedWidget — RSS 피드 위젯 (피드 관리, 기사 목록, 오류 상태)
-// @MX:SPEC: SPEC-WIDGET-003
+// @MX:SPEC: SPEC-WIDGET-003, SPEC-UX-009
 import { useState } from 'react'
 import { useFeedStore } from '../../stores/feedStore'
+// REQ-UX-009-003: 위젯 핸들 슬롯 컴포넌트
+import { DragHandleSlot } from '../common/DragHandleSlot'
+import { useEditMode } from '../../stores/editModeStore'
 
 // ─── 상대 날짜 포맷 헬퍼 ────────────────────────────────────────────────
 
@@ -22,6 +25,8 @@ function formatRelativeDate(pubDate: string): string {
 // ─── 컴포넌트 ────────────────────────────────────────────────────────────
 
 export default function FeedWidget(): JSX.Element {
+  // REQ-UX-009-003: 편집 모드 상태 — 핸들 슬롯 tabIndex 제어
+  const { isEditing } = useEditMode()
   const { feeds, articles, loading, addFeed, removeFeed, refreshAll } = useFeedStore()
   const [showAddForm, setShowAddForm] = useState(false)
   const [inputUrl, setInputUrl] = useState('')
@@ -61,7 +66,7 @@ export default function FeedWidget(): JSX.Element {
         gap: 12,
       }}
     >
-      {/* 헤더 */}
+      {/* 헤더 — REQ-UX-009-003: DragHandleSlot level="widget" 추가 (시각 마커) */}
       <div
         className="widget-drag-handle"
         style={{
@@ -71,15 +76,22 @@ export default function FeedWidget(): JSX.Element {
           cursor: 'grab',
         }}
       >
-        <span
-          style={{
-            fontWeight: 700,
-            fontSize: 15,
-            color: 'var(--text-primary)',
-          }}
-        >
-          뉴스 피드
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <DragHandleSlot
+            level="widget"
+            ariaLabel="위젯 이동: 뉴스 피드"
+            isEditing={isEditing}
+          />
+          <span
+            style={{
+              fontWeight: 700,
+              fontSize: 15,
+              color: 'var(--text-primary)',
+            }}
+          >
+            뉴스 피드
+          </span>
+        </div>
         <div style={{ display: 'flex', gap: 6 }}>
           {/* REQ-004: 새로고침 버튼 */}
           <button

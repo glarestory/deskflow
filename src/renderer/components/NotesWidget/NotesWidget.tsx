@@ -1,9 +1,14 @@
 // @MX:NOTE: [AUTO] NotesWidget — 600ms 디바운스 자동 저장, 마운트 시 로드, 언마운트 시 cleanup
-// @MX:SPEC: SPEC-UI-001
+// @MX:SPEC: SPEC-UI-001, SPEC-UX-009
 import { useState, useEffect, useRef } from 'react'
 import { storage } from '../../lib/storage'
+// REQ-UX-009-003: 위젯 핸들 슬롯 컴포넌트
+import { DragHandleSlot } from '../common/DragHandleSlot'
+import { useEditMode } from '../../stores/editModeStore'
 
 export default function NotesWidget(): JSX.Element {
+  // REQ-UX-009-003: 편집 모드 상태 — 핸들 슬롯 tabIndex 제어
+  const { isEditing } = useEditMode()
   const [notes, setNotes] = useState('')
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -40,7 +45,8 @@ export default function NotesWidget(): JSX.Element {
         border: '1px solid var(--border)',
       }}
     >
-      {/* REQ-UX-007-010: widget-drag-handle 추가 */}
+      {/* REQ-UX-007-010: widget-drag-handle 추가
+          REQ-UX-009-003: DragHandleSlot level="widget" 추가 (시각 마커) */}
       <div
         className="widget-drag-handle"
         style={{
@@ -50,9 +56,14 @@ export default function NotesWidget(): JSX.Element {
           marginBottom: 14,
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
+          gap: 4,
         }}
       >
+        <DragHandleSlot
+          level="widget"
+          ariaLabel="위젯 이동: 빠른 메모"
+          isEditing={isEditing}
+        />
         <span>빠른 메모</span>
       </div>
       <textarea

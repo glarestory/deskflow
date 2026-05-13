@@ -1,9 +1,14 @@
 // @MX:NOTE: [AUTO] WeatherWidget — 날씨 위젯 컴포넌트 (OpenWeatherMap API)
-// @MX:SPEC: SPEC-WIDGET-002
+// @MX:SPEC: SPEC-WIDGET-002, SPEC-UX-009
 import { useState, useEffect, FormEvent } from 'react'
 import { useWeatherStore } from '../../stores/weatherStore'
+// REQ-UX-009-003: 위젯 핸들 슬롯 컴포넌트
+import { DragHandleSlot } from '../common/DragHandleSlot'
+import { useEditMode } from '../../stores/editModeStore'
 
 export default function WeatherWidget(): JSX.Element {
+  // REQ-UX-009-003: 편집 모드 상태 — WeatherInfo 하위 컴포넌트에 전달
+  const { isEditing } = useEditMode()
   const {
     city,
     temp,
@@ -119,6 +124,7 @@ export default function WeatherWidget(): JSX.Element {
               icon={icon}
               lastUpdated={lastUpdated}
               formatLastUpdated={formatLastUpdated}
+              isEditing={isEditing}
             />
           </div>
         )}
@@ -210,6 +216,7 @@ export default function WeatherWidget(): JSX.Element {
       icon={icon}
       lastUpdated={lastUpdated}
       formatLastUpdated={formatLastUpdated}
+      isEditing={isEditing}
     />
   )
 }
@@ -224,6 +231,8 @@ interface WeatherInfoProps {
   icon: string
   lastUpdated: string | null
   formatLastUpdated: (iso: string) => string
+  // REQ-UX-009-003: 편집 모드 상태 — 핸들 슬롯 tabIndex 제어
+  isEditing: boolean
 }
 
 function WeatherInfo({
@@ -235,6 +244,7 @@ function WeatherInfo({
   icon,
   lastUpdated,
   formatLastUpdated,
+  isEditing,
 }: WeatherInfoProps): JSX.Element {
   return (
     <div
@@ -245,20 +255,33 @@ function WeatherInfo({
         gap: 8,
       }}
     >
-      {/* 도시명 — REQ-UX-007-010: widget-drag-handle 추가 */}
-      {city !== null && (
-        <div
-          data-testid="weather-city"
-          className="widget-drag-handle"
-          style={{
-            fontSize: 14,
-            color: 'var(--text-muted)',
-            fontWeight: 500,
-          }}
-        >
-          {city}
-        </div>
-      )}
+      {/* 도시명 헤더 — REQ-UX-007-010: widget-drag-handle, REQ-UX-009-003: DragHandleSlot level="widget" */}
+      <div
+        className="widget-drag-handle"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+        }}
+      >
+        <DragHandleSlot
+          level="widget"
+          ariaLabel="위젯 이동: 날씨"
+          isEditing={isEditing}
+        />
+        {city !== null && (
+          <span
+            data-testid="weather-city"
+            style={{
+              fontSize: 14,
+              color: 'var(--text-muted)',
+              fontWeight: 500,
+            }}
+          >
+            {city}
+          </span>
+        )}
+      </div>
 
       {/* 메인 날씨 정보 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

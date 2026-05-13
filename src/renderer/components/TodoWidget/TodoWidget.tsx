@@ -1,8 +1,11 @@
 // @MX:NOTE: [AUTO] TodoWidget — todoStore와 연결된 할 일 목록 위젯 (반복 기능 포함)
-// @MX:SPEC: SPEC-TODO-002
+// @MX:SPEC: SPEC-TODO-002, SPEC-UX-009
 import { useState, useEffect } from 'react'
 import { useTodoStore } from '../../stores/todoStore'
 import RecurrenceModal from '../RecurrenceModal/RecurrenceModal'
+// REQ-UX-009-003: 위젯 핸들 슬롯 컴포넌트
+import { DragHandleSlot } from '../common/DragHandleSlot'
+import { useEditMode } from '../../stores/editModeStore'
 import type { Recurrence } from '../../types'
 
 // 삭제 확인 상태 타입
@@ -12,6 +15,8 @@ interface DeleteConfirm {
 }
 
 export default function TodoWidget(): JSX.Element {
+  // REQ-UX-009-003: 편집 모드 상태 — 핸들 슬롯 tabIndex 제어
+  const { isEditing } = useEditMode()
   const { todos, addTodo, addRecurringTodo, toggleTodo, removeTodo, deleteTodoSeries, checkAndRegenerateRecurring } =
     useTodoStore()
   const [input, setInput] = useState('')
@@ -83,7 +88,8 @@ export default function TodoWidget(): JSX.Element {
         minHeight: 0,
       }}
     >
-      {/* 헤더 — REQ-UX-007-010: widget-drag-handle 추가 */}
+      {/* 헤더 — REQ-UX-007-010: widget-drag-handle 추가
+          REQ-UX-009-003: DragHandleSlot level="widget" 추가 (시각 마커) */}
       <div
         className="widget-drag-handle"
         style={{
@@ -93,9 +99,14 @@ export default function TodoWidget(): JSX.Element {
           marginBottom: 14,
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
+          gap: 4,
         }}
       >
+        <DragHandleSlot
+          level="widget"
+          ariaLabel="위젯 이동: 할 일 목록"
+          isEditing={isEditing}
+        />
         <span>할 일 목록</span>
         <span
           style={{

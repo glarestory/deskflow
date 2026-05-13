@@ -1,9 +1,12 @@
 // @MX:NOTE: [AUTO] PomodoroWidget — 포모도로 타이머 위젯 (집중/휴식 사이클, 할 일 연동)
-// @MX:SPEC: SPEC-WIDGET-004
+// @MX:SPEC: SPEC-WIDGET-004, SPEC-UX-009
 import { useState } from 'react'
 import { usePomodoroStore } from '../../stores/pomodoroStore'
 import { useTodoStore } from '../../stores/todoStore'
 import type { PomodoroMode } from '../../stores/pomodoroStore'
+// REQ-UX-009-003: 위젯 핸들 슬롯 컴포넌트
+import { DragHandleSlot } from '../common/DragHandleSlot'
+import { useEditMode } from '../../stores/editModeStore'
 
 // 초를 MM:SS 형식으로 변환하는 헬퍼
 const formatTime = (seconds: number): string => {
@@ -33,6 +36,8 @@ const getModeColor = (mode: PomodoroMode): string => {
 }
 
 export default function PomodoroWidget(): JSX.Element {
+  // REQ-UX-009-003: 편집 모드 상태 — 핸들 슬롯 tabIndex 제어
+  const { isEditing } = useEditMode()
   const {
     mode,
     remaining,
@@ -85,11 +90,18 @@ export default function PomodoroWidget(): JSX.Element {
         overflow: 'hidden',
       }}
     >
-      {/* 헤더 */}
+      {/* 헤더 — REQ-UX-009-003: DragHandleSlot level="widget" 추가 (시각 마커) */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
-          🍅 포모도로
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <DragHandleSlot
+            level="widget"
+            ariaLabel="위젯 이동: 포모도로"
+            isEditing={isEditing}
+          />
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+            🍅 포모도로
+          </span>
+        </div>
         <button
           data-testid="settings-toggle-btn"
           onClick={() => setShowSettings(!showSettings)}

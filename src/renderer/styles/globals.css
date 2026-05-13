@@ -89,6 +89,87 @@
   cursor: grabbing;
 }
 
+/* ─── SPEC-UX-009: 레벨별 드래그 핸들 시각 토큰 ───────────────────────────── */
+
+/* 레벨 A: 위젯 핸들 슬롯 — GripVertical 16px, --text-muted */
+.widget-drag-handle-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--text-muted);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s ease-out;
+}
+body.is-edit-mode .widget-drag-handle-slot {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 레벨 B: 그룹 핸들 — Grip 18px, --accent */
+[data-group-handle] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--accent);
+  opacity: 0;
+  pointer-events: none;
+  cursor: grab;
+  transition: opacity .15s ease-out;
+  flex-shrink: 0;
+}
+body.is-edit-mode [data-group-handle] {
+  opacity: 1;
+  pointer-events: auto;
+}
+[data-group-handle]:active {
+  cursor: grabbing;
+}
+
+/* 레벨 C: 링크 핸들 — GripVertical 12px, --text-faint */
+[data-link-handle] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--text-faint);
+  opacity: 0;
+  pointer-events: none;
+  cursor: grab;
+  transition: opacity .15s ease-out;
+  flex-shrink: 0;
+}
+body.is-edit-mode [data-link-handle] {
+  opacity: 1;
+  pointer-events: auto;
+}
+[data-link-handle]:active {
+  cursor: grabbing;
+}
+
+/* 레벨 A: 위젯 시각 마커 (data-widget-handle) — opacity 토글 전용 */
+[data-widget-handle] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--text-muted);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s ease-out;
+  flex-shrink: 0;
+}
+body.is-edit-mode [data-widget-handle] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 /* REQ-UX-006-007: 드래그 중 body 스크롤 격리 */
 body.is-dragging-widget {
   overflow: hidden;
@@ -244,6 +325,13 @@ body.is-edit-mode .react-grid-item {
     transition-duration: 0.01ms !important;
   }
   body.is-edit-mode .react-grid-item {
+    transition: none;
+  }
+  /* REQ-UX-009-015: 핸들 슬롯 transition 즉시 적용/해제 */
+  .widget-drag-handle-slot,
+  [data-group-handle],
+  [data-link-handle],
+  [data-widget-handle] {
     transition: none;
   }
 }
