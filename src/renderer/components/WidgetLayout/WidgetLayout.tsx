@@ -26,6 +26,10 @@ import { useLayoutStore } from '../../stores/layoutStore'
 import { useAuthStore } from '../../stores/authStore'
 import { useIsMobile } from '../../hooks/useIsMobile'
 import { useEditMode } from '../../stores/editModeStore'
+import {
+  useWidgetVisibility,
+  type WidgetKey,
+} from '../../stores/widgetVisibilityStore'
 import Clock from '../Clock/Clock'
 import SearchBar from '../SearchBar/SearchBar'
 import BookmarkCard from '../BookmarkCard/BookmarkCard'
@@ -34,6 +38,7 @@ import NotesWidget from '../NotesWidget/NotesWidget'
 import FeedWidget from '../FeedWidget/FeedWidget'
 import CapsuleSwitcher from '../CapsuleSwitcher/CapsuleSwitcher'
 import HeaderMoreMenu from './HeaderMoreMenu'
+import WidgetVisibilityMenu from './WidgetVisibilityMenu'
 
 // @MX:NOTE: [AUTO] WidthProvider가 컨테이너 너비를 자동 측정하여 Responsive 그리드에 주입
 const ResponsiveGridLayout = WidthProvider(Responsive)
@@ -274,11 +279,19 @@ export default function WidgetLayout({
   // REQ-UX-006-002: xs/xxs 에서 드래그·리사이즈 비활성
   const isMobileBreakpoint = MOBILE_BREAKPOINTS.has(currentBreakpoint)
 
+  // SPEC-WIDGET-TOGGLE-001: 사용자가 숨긴 위젯 필터링
+  const { hiddenWidgets } = useWidgetVisibility()
+  const isWidgetVisible = (key: string): boolean => !hiddenWidgets.has(key as WidgetKey)
+
   // 모바일 단일 컬럼 레이아웃 또는 저장된 lg 레이아웃 사용
   // @MX:NOTE: [AUTO] xs/xxs 브레이크포인트에서는 MOBILE_LAYOUT 강제 적용
+  // @MX:NOTE: [AUTO] SPEC-WIDGET-TOGGLE-001 — 숨긴 위젯은 layout 에서 제외
   const activeLayout = useMemo(
-    () => (isMobile ? MOBILE_LAYOUT : layout),
-    [isMobile, layout],
+    () => {
+      const base = isMobile ? MOBILE_LAYOUT : layout
+      return base.filter((item) => isWidgetVisible(item.i))
+    },
+    [isMobile, layout, hiddenWidgets],
   )
 
   // 모바일에서는 layout 변경이 propagate 되지 않도록 onLayoutChange 무력화
@@ -558,6 +571,8 @@ export default function WidgetLayout({
             >
               중복 탐지
             </button>
+            {/* SPEC-WIDGET-TOGGLE-001: 위젯 표시/숨김 드롭다운 */}
+            <WidgetVisibilityMenu variant="desktop" />
             {/* REQ-005: 레이아웃 초기화 버튼 */}
             <button
               data-testid="reset-layout-btn"
@@ -674,18 +689,23 @@ export default function WidgetLayout({
           onDragStop={onDragStop}
         >
           {/* Clock 위젯 — REQ-UX-007-010: 헤더 없으므로 셀 래퍼에 drag-handle 부여 (D1) */}
-          <div key="clock" className="widget-drag-handle" style={{ background: 'transparent' }}>
-            <Clock />
-          </div>
+          {isWidgetVisible('clock') && (
+            <div key="clock" className="widget-drag-handle" style={{ background: 'transparent' }}>
+              <Clock />
+            </div>
+          )}
 
           {/* SearchBar 위젯 — 데스크탑에서만 그리드 내부에 표시 (REQ-UX-007-010: 셀 래퍼에 drag-handle) */}
-          <div key="search" className="widget-drag-handle" style={{ background: 'transparent' }}>
-            {!isMobile && <SearchBar />}
-          </div>
+          {isWidgetVisible('search') && (
+            <div key="search" className="widget-drag-handle" style={{ background: 'transparent' }}>
+              {!isMobile && <SearchBar />}
+            </div>
+          )}
 
           {/* Bookmarks 위젯 */}
           {/* @MX:NOTE: [AUTO] SPEC-LAYOUT-002 Step 3 — 스크롤 컨테이너와 내부 grid 분리 */}
           {/* REQ-UX-008-001: 단일 DndContext로 카테고리 정렬 + 링크 이동 통합 (D1) */}
+          {isWidgetVisible('bookmarks') && (
           <div
             key="bookmarks"
             style={{
@@ -787,21 +807,28 @@ export default function WidgetLayout({
               </DragOverlay>
             </DndContext>
           </div>
+          )}
 
           {/* Todo 위젯 */}
-          <div key="todo" style={{ overflow: 'auto' }}>
-            <TodoWidget />
-          </div>
+          {isWidgetVisible('todo') && (
+            <div key="todo" style={{ overflow: 'auto' }}>
+              <TodoWidget />
+            </div>
+          )}
 
           {/* Notes 위젯 */}
-          <div key="notes" style={{ overflow: 'auto' }}>
-            <NotesWidget />
-          </div>
+          {isWidgetVisible('notes') && (
+            <div key="notes" style={{ overflow: 'auto' }}>
+              <NotesWidget />
+            </div>
+          )}
 
           {/* Feed 위젯 — SPEC-WIDGET-003 */}
-          <div key="feed" style={{ overflow: 'hidden' }}>
-            <FeedWidget />
-          </div>
+          {isWidgetVisible('feed') && (
+            <div key="feed" style={{ overflow: 'hidden' }}>
+              <FeedWidget />
+            </div>
+          )}
         </ResponsiveGridLayout>
       </div>
     </div>
