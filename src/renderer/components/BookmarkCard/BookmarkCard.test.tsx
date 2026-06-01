@@ -189,4 +189,65 @@ describe('BookmarkCard (SPEC-UX-006 + SPEC-UX-007)', () => {
     await renderCard(emptyCategory, true)
     expect(screen.getByText('여기로 드래그하여 추가')).toBeInTheDocument()
   })
+
+  // ─── SPEC-UX-011 회귀 테스트: 많은 링크 스크롤 컨테이너 구조 ──────────────
+
+  // REG-001: 링크가 8개 이상인 카테고리에서 스크롤 컨테이너와 그리드가 분리되어 있어야 한다.
+  // 문제: display:grid + flex:1 인 단일 div에 minHeight:48 이 있으면 flex 컨텍스트에서
+  //       min-height:0 이 없어 암묵적 그리드 행들이 압축되어 텍스트가 겹친다.
+  // 수정: 스크롤 래퍼(flex:1, min-height:0, overflow-y:auto)와
+  //       내부 그리드(display:grid) 를 분리해야 한다.
+  it('링크가 8개 이상인 카테고리에서 스크롤 컨테이너가 overflow-y:auto + min-height:0 이어야 한다 (REG-001)', async () => {
+    const manyLinksCategory: Category = {
+      id: 'many-1',
+      name: '많은 링크',
+      icon: '📚',
+      links: Array.from({ length: 10 }, (_, i) => ({
+        id: `link-${i}`,
+        name: `링크 ${i + 1}`,
+        url: `https://example.com/${i}`,
+        tags: [],
+      })),
+    }
+    await renderCard(manyLinksCategory, false)
+
+    // data-scroll-wrapper 속성으로 스크롤 래퍼를 직접 선택 (DOM 탐색 깊이에 독립적)
+    const scrollWrapper = document.querySelector('[data-scroll-wrapper]') as HTMLElement
+
+    // 스크롤 래퍼 존재 확인
+    expect(scrollWrapper).toBeInTheDocument()
+
+    // 스크롤 래퍼: overflow-y:auto + min-height:0 (인라인 스타일로 확인)
+    // jsdom은 window.getComputedStyle에서 인라인 스타일만 반영함
+    expect(scrollWrapper.style.overflowY).toBe('auto')
+    // React가 숫자 0을 인라인 스타일로 설정하면 jsdom은 '0'으로 반환 (단위 없음)
+    expect(scrollWrapper.style.minHeight).toBe('0')
+
+    // 스크롤 래퍼의 직계 자식이 그리드여야 함
+    const gridDiv = scrollWrapper.firstElementChild as HTMLElement
+    expect(gridDiv).not.toBeNull()
+    expect(gridDiv.style.display).toBe('grid')
+
+    // 그리드 자체에 overflow-y:auto 가 없어야 함 (스크롤이 래퍼에서만 발생)
+    expect(gridDiv.style.overflowY).not.toBe('auto')
+  })
+
+  // REG-002: 스크롤 래퍼가 droppable ref(setDropRef)를 받으면서
+  //          isOver 시각 상태(outline, background 등)를 포함해야 한다.
+  it('링크 그리드의 스크롤 래퍼에 data-scroll-wrapper 속성이 있어야 한다 (REG-002)', async () => {
+    const manyLinksCategory: Category = {
+      id: 'many-2',
+      name: '많은 링크2',
+      icon: '📚',
+      links: Array.from({ length: 8 }, (_, i) => ({
+        id: `link2-${i}`,
+        name: `링크A ${i + 1}`,
+        url: `https://example.com/a/${i}`,
+        tags: [],
+      })),
+    }
+    await renderCard(manyLinksCategory, false)
+    // 수정 후 스크롤 래퍼에 data-scroll-wrapper 속성이 붙어야 한다
+    expect(document.querySelector('[data-scroll-wrapper]')).toBeInTheDocument()
+  })
 })

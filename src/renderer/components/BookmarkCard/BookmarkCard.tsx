@@ -172,20 +172,23 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
 
       {/* REQ-UX-008-002: BookmarkCard 내부 DndContext 제거 — WidgetLayout 단일 DndContext 사용 (D1)
           REQ-UX-008-004: SortableContext에 id={category.id} 명시 — dnd-kit sortable.containerId 식별
-          REQ-UX-008-003: setDropRef로 링크 grid를 droppable 컨테이너 등록 */}
+          REQ-UX-008-003: setDropRef로 스크롤 래퍼를 droppable 컨테이너로 등록
+          BUGFIX(SPEC-UX-011 회귀): display:grid + flex:1 단일 div에 minHeight:0 누락 시
+            암묵적 그리드 행이 flex 컨텍스트에서 압축되어 링크 텍스트가 겹치는 문제 수정.
+            → 스크롤 래퍼(flex:1, min-height:0, overflow-y:auto)와 내부 그리드를 분리. */}
       <SortableContext id={category.id} items={linkIds} strategy={rectSortingStrategy}>
+        {/* 스크롤 래퍼: flex 자식으로 남은 공간 차지 + 실제 스크롤 컨테이너
+            setDropRef를 여기 배치하여 드롭 히트 영역 = 전체 스크롤 영역 (REQ-UX-008-003) */}
         <div
           ref={setDropRef}
+          data-scroll-wrapper
           style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 8,
-            // BUGFIX: 고정 카드 높이(380px) 안에서 남은 공간을 채우고 넘치면 스크롤
             flex: 1,
+            // CRITICAL: flex 자식이 스크롤되려면 min-height:0 이 필수
+            // (기본값 min-height:auto 가 내용물 크기만큼 늘어나 overflow가 동작하지 않음)
+            minHeight: 0,
             overflowY: 'auto',
             minWidth: 0,
-            // REQ-UX-008-003 D4: 빈 카테고리도 drop target hit-area 확보 (NFR-003 모바일)
-            minHeight: 48,
             // SPEC-UX-011: 드롭 타겟 시각 강화 — dashed outline + inset shadow + 배경
             background: isOver && isEditing ? 'var(--accent-subtle, rgba(99,102,241,0.08))' : undefined,
             borderRadius: isOver && isEditing ? 8 : undefined,
@@ -194,36 +197,47 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
             transition: 'background .12s, outline .12s, box-shadow .12s',
           }}
         >
-          {category.links.map((link) => (
-            <SortableLink
-              key={link.id}
-              link={link}
-              isEditing={isEditing}
-              onUsage={(id) => recordUsage('bookmark', id)}
-              categoryId={category.id}
-            />
-          ))}
-          {/* SPEC-UX-010 REQ-UX-010-011: 빈 카테고리 placeholder (D5) */}
-          {category.links.length === 0 && (
-            <div
-              data-empty-placeholder
-              style={{
-                gridColumn: '1 / -1',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '12px 8px',
-                border: '1.5px dashed var(--border)',
-                borderRadius: 8,
-                color: 'var(--text-muted)',
-                fontSize: 12,
-                minHeight: 48,
-                userSelect: 'none',
-              }}
-            >
-              {isEditing ? '여기로 드래그하여 추가' : '북마크가 없습니다'}
-            </div>
-          )}
+          {/* 내부 그리드: 링크 아이템 레이아웃만 담당, 스크롤은 부모 래퍼가 처리 */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 8,
+              // REQ-UX-008-003 D4: 빈 카테고리도 drop target hit-area 확보 (NFR-003 모바일)
+              minHeight: 48,
+            }}
+          >
+            {category.links.map((link) => (
+              <SortableLink
+                key={link.id}
+                link={link}
+                isEditing={isEditing}
+                onUsage={(id) => recordUsage('bookmark', id)}
+                categoryId={category.id}
+              />
+            ))}
+            {/* SPEC-UX-010 REQ-UX-010-011: 빈 카테고리 placeholder (D5) */}
+            {category.links.length === 0 && (
+              <div
+                data-empty-placeholder
+                style={{
+                  gridColumn: '1 / -1',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '12px 8px',
+                  border: '1.5px dashed var(--border)',
+                  borderRadius: 8,
+                  color: 'var(--text-muted)',
+                  fontSize: 12,
+                  minHeight: 48,
+                  userSelect: 'none',
+                }}
+              >
+                {isEditing ? '여기로 드래그하여 추가' : '북마크가 없습니다'}
+              </div>
+            )}
+          </div>
         </div>
       </SortableContext>
     </div>
