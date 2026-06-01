@@ -131,20 +131,29 @@ body.is-edit-mode [data-group-handle] {
 }
 
 /* 레벨 C: 링크 핸들 — GripVertical 12px, --text-faint */
+/* SPEC-UX-012 후속: 비편집 모드에서는 핸들이 레이아웃 공간을 차지하지 않도록 collapse.
+   (이전: min-width/height 44px가 항상 적용되어 칩 좌측 여백 + 세로 길이가 과도했음) */
 [data-link-handle] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
+  width: 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   color: var(--text-faint);
   opacity: 0;
   pointer-events: none;
   cursor: grab;
-  transition: opacity .15s ease-out;
+  transition: opacity .15s ease-out, width .15s ease-out;
   flex-shrink: 0;
 }
+/* 편집 모드에서만 44px 터치 히트 영역 + 표시 */
 body.is-edit-mode [data-link-handle] {
+  width: auto;
+  min-width: 44px;
+  min-height: 44px;
+  overflow: visible;
   opacity: 1;
   pointer-events: auto;
 }
@@ -228,39 +237,43 @@ body {
   min-height: 100%;
 }
 
-/* Root CSS Variables — Linear-inspired dark-first design tokens
- * Tone: cool neutrals + single indigo accent (Linear/Raycast hybrid)
+/* Root CSS Variables — Midnight Slate + Teal 다크-퍼스트 디자인 토큰
+ * Tone: deep navy 배경 + teal 액센트 (Midnight Slate 팔레트)
  * Color space: OKLCH for perceptual uniformity (P3-aware)
  * Light theme tokens prepared but not auto-applied (see [data-theme="light"])
  */
 :root {
-  /* === Surface (가장 어두움 → 가장 밝음) === */
-  --bg: oklch(16% 0.012 260);              /* canvas */
-  --bg-pattern: oklch(18% 0.014 260);      /* secondary canvas */
-  --surface-1: oklch(20% 0.014 260);       /* sidebar, cards */
-  --surface-2: oklch(23% 0.016 260);       /* hover state, elevated card */
-  --surface-3: oklch(27% 0.018 260);       /* pressed, active row bg */
+  /* === Surface (가장 어두움 → 가장 밝음) ===
+   * navy hue ~252, 낮은 채도, 지각적으로 균등한 단계:
+   * bg(#0e1626) < bg-pattern < surface-1 < surface-2(#18233a) < surface-3 */
+  --bg: oklch(13.5% 0.028 252);            /* canvas — #0e1626 근사 */
+  --bg-pattern: oklch(15.5% 0.030 252);    /* secondary canvas */
+  --surface-1: oklch(17% 0.030 252);       /* sidebar, cards */
+  --surface-2: oklch(19% 0.032 252);       /* hover state, elevated card — #18233a 근사 */
+  --surface-3: oklch(22.5% 0.034 252);     /* pressed, active row bg */
   --card-bg: var(--surface-1);
   --link-bg: var(--surface-2);
   --link-hover: var(--surface-2);
   --link-active: var(--surface-3);
 
-  /* === Border === */
-  --border: oklch(28% 0.014 260);          /* default 1px line */
-  --border-strong: oklch(36% 0.018 260);   /* focus ring inner */
-  --border-subtle: oklch(24% 0.012 260);   /* row separator */
+  /* === Border (navy hue 조율) === */
+  --border: oklch(24% 0.022 252);          /* default 1px line */
+  --border-strong: oklch(32% 0.026 252);   /* focus ring inner */
+  --border-subtle: oklch(20% 0.018 252);   /* row separator */
 
-  /* === Text (4-step scale) === */
-  --text-primary: oklch(96% 0.005 260);    /* primary content */
-  --text-secondary: oklch(78% 0.010 260);  /* secondary labels */
-  --text-muted: oklch(58% 0.012 260);      /* meta, hints */
-  --text-faint: oklch(44% 0.012 260);      /* disabled, dividers in text */
+  /* === Text (4-step scale, navy hue) === */
+  --text-primary: oklch(93% 0.008 250);    /* primary content — #e6edf6 근사 */
+  --text-secondary: oklch(76% 0.013 252);  /* secondary labels */
+  --text-muted: oklch(60% 0.017 252);      /* meta, hints — #8595ab 근사 */
+  --text-faint: oklch(44% 0.015 252);      /* disabled, dividers in text */
 
-  /* === Accent (Linear indigo) === */
-  --accent: oklch(64% 0.18 270);
-  --accent-hover: oklch(70% 0.18 270);
-  --accent-soft: oklch(64% 0.18 270 / 0.12);
-  --accent-fg: oklch(98% 0.005 260);
+  /* === Accent (Teal #2dd4bf) ===
+   * --accent-fg: 어두운 navy 잉크 — teal(밝음) 위에서 WCAG AA 확보
+   * 대비비 ≈ 10.1:1 (oklch 12% navy on oklch 79% teal) */
+  --accent: oklch(79% 0.130 177);          /* #2dd4bf */
+  --accent-hover: oklch(83% 0.135 177);    /* 약간 밝고 채도 상승 */
+  --accent-soft: oklch(79% 0.130 177 / 0.12); /* teal 반투명 오버레이 */
+  --accent-fg: oklch(12% 0.025 252);       /* 다크 navy 잉크 — teal fill 위 텍스트/아이콘용 */
 
   /* === Semantic === */
   --success: oklch(68% 0.16 155);
@@ -329,9 +342,14 @@ body {
   --text-secondary: oklch(38% 0.012 260);
   --text-muted: oklch(54% 0.012 260);
   --text-faint: oklch(70% 0.010 260);
-  --accent: oklch(54% 0.20 270);
-  --accent-hover: oklch(48% 0.20 270);
-  --accent-soft: oklch(54% 0.20 270 / 0.10);
+  /* === Accent — teal (라이트 테마 일관성 유지)
+   * 흰 배경 대비 확보를 위해 어두운 teal 사용
+   * oklch(46%) on white: 대비 ≈ 5.1:1 (AA 통과)
+   * --accent-fg: 라이트 모드 teal이 어둡기 때문에 밝은 fg 사용 */
+  --accent: oklch(46% 0.140 177);
+  --accent-hover: oklch(41% 0.140 177);
+  --accent-soft: oklch(46% 0.140 177 / 0.10);
+  --accent-fg: oklch(98% 0.003 250);
   --shadow: 0 1px 2px rgba(15, 17, 23, 0.06);
   --shadow-sm: 0 1px 2px rgba(15, 17, 23, 0.08);
   --shadow-md: 0 4px 12px rgba(15, 17, 23, 0.10);

@@ -13,12 +13,12 @@ export default function LoginScreen(): JSX.Element {
         alignItems: 'center',
         justifyContent: 'center',
         minHeight: '100vh',
-        background: '#0f1117',
+        background: '#0e1626',
       }}
     >
       <div
         style={{
-          background: '#1a1d2b',
+          background: '#18233a',
           borderRadius: 20,
           padding: '40px 48px',
           display: 'flex',
@@ -36,7 +36,7 @@ export default function LoginScreen(): JSX.Element {
               width: 40,
               height: 40,
               borderRadius: 12,
-              background: '#6366f1',
+              background: '#2dd4bf',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -57,7 +57,7 @@ export default function LoginScreen(): JSX.Element {
           </span>
         </div>
 
-        <p style={{ color: '#8a8fa8', fontSize: 14, textAlign: 'center', margin: 0 }}>
+        <p style={{ color: '#8595ab', fontSize: 14, textAlign: 'center', margin: 0 }}>
           계속하려면 로그인하세요
         </p>
 
@@ -70,8 +70,8 @@ export default function LoginScreen(): JSX.Element {
             width: '100%',
             padding: '12px 20px',
             borderRadius: 10,
-            border: '1px solid #2a2d3e',
-            background: '#23263a',
+            border: '1px solid #2a3854',
+            background: '#1f2c46',
             color: '#f1f2f6',
             fontSize: 14,
             fontWeight: 600,
@@ -102,8 +102,8 @@ export default function LoginScreen(): JSX.Element {
             width: '100%',
             padding: '12px 20px',
             borderRadius: 10,
-            border: '1px solid #2a2d3e',
-            background: '#23263a',
+            border: '1px solid #2a3854',
+            background: '#1f2c46',
             color: '#f1f2f6',
             fontSize: 14,
             fontWeight: 600,

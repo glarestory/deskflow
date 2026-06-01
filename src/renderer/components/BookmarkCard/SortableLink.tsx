@@ -54,8 +54,8 @@ export default function SortableLink({ link, isEditing, onUsage, categoryId }: S
     opacity: isDragging ? 0.4 : 1,
     zIndex: isDragging ? 10 : undefined,
     // SPEC-UX-011: 드래그 중 dashed outline + accent-soft 배경
-    outline: isDragging ? '1.5px dashed var(--accent-soft, rgba(99,102,241,0.4))' : undefined,
-    background: isDragging ? 'var(--accent-soft, rgba(99,102,241,0.08))' : 'var(--link-bg)',
+    outline: isDragging ? '1.5px dashed var(--accent-soft, rgba(45,212,191,0.40))' : undefined,
+    background: isDragging ? 'var(--accent-soft, rgba(45,212,191,0.10))' : 'var(--link-bg)',
     display: 'flex',
     alignItems: 'center',
     gap: 0,

@@ -198,8 +198,8 @@ export default function App(): JSX.Element {
           alignItems: 'center',
           justifyContent: 'center',
           minHeight: '100vh',
-          background: '#0f1117',
-          color: '#6b7094',
+          background: '#0e1626',
+          color: '#8595ab',
         }}
       >
         로딩 중...
@@ -224,8 +224,8 @@ export default function App(): JSX.Element {
           alignItems: 'center',
           justifyContent: 'center',
           minHeight: '100vh',
-          background: '#0f1117',
-          color: '#6b7094',
+          background: '#0e1626',
+          color: '#8595ab',
         }}
       >
         로딩 중...

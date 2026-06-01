@@ -61,7 +61,7 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
     transition: isDragging ? undefined : transition,
     opacity: isDragging ? 0.4 : 1,
     zIndex: isDragging ? 10 : undefined,
-    outline: isDragging ? '1.5px dashed var(--accent-soft, rgba(99,102,241,0.4))' : undefined,
+    outline: isDragging ? '1.5px dashed var(--accent-soft, rgba(45,212,191,0.40))' : undefined,
   }
 
   // REQ-UX-008-003: 링크 칩 영역을 useDroppable로 등록 — 빈 카테고리도 drop target
@@ -254,10 +254,10 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
               gap: 8,
               minWidth: 0,
               // SPEC-UX-011: 드롭 타겟 시각 강화
-              background: isOver && isEditing ? 'var(--accent-subtle, rgba(99,102,241,0.08))' : undefined,
+              background: isOver && isEditing ? 'var(--accent-subtle, rgba(45,212,191,0.10))' : undefined,
               borderRadius: isOver && isEditing ? 8 : undefined,
-              outline: isOver && isEditing ? '1.5px dashed var(--accent, oklch(0.55 0.2 264))' : undefined,
-              boxShadow: isOver && isEditing ? 'inset 0 0 0 1.5px var(--accent, oklch(0.55 0.2 264))' : undefined,
+              outline: isOver && isEditing ? '1.5px dashed var(--accent, oklch(0.79 0.130 177))' : undefined,
+              boxShadow: isOver && isEditing ? 'inset 0 0 0 1.5px var(--accent, oklch(0.79 0.130 177))' : undefined,
               transition: 'background .12s, outline .12s, box-shadow .12s',
               // REQ-UX-008-003 D4: 빈 카테고리도 drop target hit-area 확보
               minHeight: 48,
