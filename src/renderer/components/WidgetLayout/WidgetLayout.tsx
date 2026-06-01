@@ -1,7 +1,8 @@
 // @MX:NOTE: [AUTO] WidgetLayout — Responsive 그리드 레이아웃 컴포넌트 (SPEC-UX-006 반응형 그리드 전환)
 // @MX:NOTE: [AUTO] App.tsx에서 추출 (SPEC-UX-005 T-003). viewMode === 'widgets'일 때 렌더링됨
-// @MX:SPEC: SPEC-UX-005, SPEC-LAYOUT-001, SPEC-UI-001, SPEC-CAPSULE-001, SPEC-MOBILE-RESPONSIVE-001, SPEC-UX-006
+// @MX:SPEC: SPEC-UX-005, SPEC-LAYOUT-001, SPEC-UI-001, SPEC-CAPSULE-001, SPEC-MOBILE-RESPONSIVE-001, SPEC-UX-006, SPEC-UX-011
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
@@ -17,6 +18,7 @@ import {
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
+  type Announcements,
 } from '@dnd-kit/core'
 import { SortableContext, arrayMove, rectSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import type { Category, Link } from '../../types'
@@ -108,17 +110,21 @@ export default function WidgetLayout({
   const { user, signOut } = useAuthStore()
   const isMobile = useIsMobile()
   // REQ-UX-007-001: 전역 편집 모드 상태
-  const { isEditing, toggle: toggleEditMode, set: setEditMode, autoExitEnabled } = useEditMode()
+  const { isEditing, toggle: toggleEditMode, set: setEditMode, autoExitEnabled, isDragging: isDragInProgress, setDragging } = useEditMode()
 
   // REQ-UX-006-003: 현재 브레이크포인트 상태 (Responsive onBreakpointChange 콜백에서 갱신)
   const [currentBreakpoint, setCurrentBreakpoint] = useState<string>('lg')
 
-  // REQ-UX-008-001: 카테고리+링크 통합 단일 DndContext 센서
-  // REQ-UX-006-010 패턴 유지 — delay 250ms, tolerance 5 (모바일 long-press, NFR-003)
-  // REQ-UX-009-003 (M5): KeyboardSensor 추가 — 핸들 포커스 후 Space/Enter 드래그 활성화 (WCAG 2.1.1)
+  // SPEC-UX-011: 센서 조건부 설정 — isMobileBreakpoint는 아래에서 선언되므로 currentBreakpoint로 직접 판별
+  // - 모바일(isMobile 또는 xs/xxs bp): long-press delay 200ms, tolerance 5 (터치 스크롤과 구분)
+  // - 데스크탑: distance 5px (클릭 vs 드래그를 명확히 구분, long-press 불필요)
+  // REQ-UX-009-003 (M5): KeyboardSensor — Space/Enter 드래그, 방향키 이동, Esc 취소 (WCAG 2.1.1)
+  const isMobileSensor = isMobile || MOBILE_BREAKPOINTS.has(currentBreakpoint)
   const categorySensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { delay: 250, tolerance: 5 },
+      activationConstraint: isMobileSensor
+        ? { delay: 200, tolerance: 5 }
+        : { distance: 5 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -134,13 +140,18 @@ export default function WidgetLayout({
   const originalCategoryIdRef = useRef<string | null>(null)
   // DragOverlay 렌더링을 위한 active 링크 상태
   const [activeLink, setActiveLink] = useState<Link | null>(null)
+  // SPEC-UX-011: DragOverlay — active 카테고리 상태 (그룹 드래그 overlay용)
+  const [activeCategory, setActiveCategory] = useState<Category | null>(null)
 
   // REQ-UX-008-001: onDragStart — active 항목 종류 분기, 원본 카테고리 기억
   // SPEC-UX-010 REQ-UX-010-012: 드래그 시작 시 햅틱 피드백
+  // SPEC-UX-011: setDragging(true)로 자동 종료 타이머 일시 중지
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
       // 모바일 드래그 시작 시 10ms 햅틱 (REQ-UX-010-012)
       tryHaptic(10)
+      // SPEC-UX-011: 드래그 시작 — 자동 종료 타이머 일시 중지
+      setDragging(true)
       const { active } = event
       if (active.data.current?.type === 'link') {
         const categoryId = active.data.current.categoryId as string
@@ -149,14 +160,22 @@ export default function WidgetLayout({
         const source = bookmarks.find((b) => b.id === categoryId)
         const link = source?.links.find((l) => l.id === active.id)
         setActiveLink(link ?? null)
+        setActiveCategory(null)
         // 임시 상태를 store bookmarks로 초기화
         setLocalBookmarks(bookmarks.map((b) => ({ ...b, links: [...b.links] })))
+      } else if (active.data.current?.type === 'category') {
+        // SPEC-UX-011: 그룹 DragOverlay — active 카테고리 객체 추출
+        const category = bookmarks.find((b) => b.id === String(active.id))
+        setActiveCategory(category ?? null)
+        setActiveLink(null)
+        originalCategoryIdRef.current = null
       } else {
         originalCategoryIdRef.current = null
         setActiveLink(null)
+        setActiveCategory(null)
       }
     },
-    [bookmarks],
+    [bookmarks, setDragging],
   )
 
   // REQ-UX-008-010: onDragOver — 카테고리 간 이동을 in-memory 상태로 미리 반영
@@ -209,13 +228,17 @@ export default function WidgetLayout({
   )
 
   // REQ-UX-008-001: handleDragEnd — active type 분기로 카테고리/링크 처리 통합
+  // SPEC-UX-011: setDragging(false)로 자동 종료 타이머 재개
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event
 
+      // SPEC-UX-011: 드래그 종료 — 자동 종료 타이머 재개
+      setDragging(false)
       // dragEnd 후 임시 상태와 overlay 초기화
       setLocalBookmarks(null)
       setActiveLink(null)
+      setActiveCategory(null)
 
       if (!over) {
         originalCategoryIdRef.current = null
@@ -272,18 +295,63 @@ export default function WidgetLayout({
         }
       }
     },
-    [bookmarks, reorderCategories, updateBookmark, moveLinkBetweenGroups],
+    [bookmarks, reorderCategories, updateBookmark, moveLinkBetweenGroups, setDragging],
   )
 
   // REQ-UX-008-013: dragCancel 시 임시 상태 복원 (영속화 없음)
+  // SPEC-UX-011: setDragging(false)로 자동 종료 타이머 재개
   const handleDragCancel = useCallback(() => {
+    setDragging(false)
     setLocalBookmarks(null)
     setActiveLink(null)
+    setActiveCategory(null)
     originalCategoryIdRef.current = null
-  }, [])
+  }, [setDragging])
 
   // D7 옵션 B: 렌더링에 사용할 bookmarks — dragging 중에는 임시, 아니면 store
   const displayBookmarks = localBookmarks ?? bookmarks
+
+  // SPEC-UX-011: SortableContext id 배열 useMemo — 드래그 중 배열 불안정 방지
+  const displayBookmarkIds = useMemo(() => displayBookmarks.map((b) => b.id), [displayBookmarks])
+
+  // SPEC-UX-011: 스크린 리더 공지용 이름 헬퍼 — id로 링크/카테고리 이름 조회
+  const getNameById = useCallback(
+    (id: string | number): string => {
+      const sid = String(id)
+      for (const cat of displayBookmarks) {
+        if (cat.id === sid) return cat.name
+        const link = cat.links.find((l) => l.id === sid)
+        if (link) return link.name
+      }
+      return sid
+    },
+    [displayBookmarks],
+  )
+
+  // SPEC-UX-011: dnd-kit accessibility announcements (한국어 스크린 리더 공지)
+  const dndAnnouncements: Announcements = useMemo(() => ({
+    onDragStart({ active }) {
+      const name = getNameById(active.id)
+      const kind = active.data.current?.type === 'category' ? '그룹' : '항목'
+      return `${name} ${kind}을(를) 들었습니다.`
+    },
+    onDragOver({ active, over }) {
+      const activeName = getNameById(active.id)
+      if (!over) return `${activeName} 항목이 드롭 가능한 영역 밖에 있습니다.`
+      const overName = getNameById(over.id)
+      return `${activeName} 항목을 ${overName} 위에 놓을 수 있습니다.`
+    },
+    onDragEnd({ active, over }) {
+      const activeName = getNameById(active.id)
+      if (!over) return `드래그가 취소되었습니다. ${activeName} 항목이 원위치로 돌아갔습니다.`
+      const overName = getNameById(over.id)
+      return `${activeName} 항목을 ${overName} 위치로 옮겼습니다.`
+    },
+    onDragCancel({ active }) {
+      const activeName = getNameById(active.id)
+      return `드래그가 취소되었습니다. ${activeName} 항목이 원위치로 돌아갔습니다.`
+    },
+  }), [getNameById])
 
   // REQ-UX-006-002: xs/xxs 에서 드래그·리사이즈 비활성
   const isMobileBreakpoint = MOBILE_BREAKPOINTS.has(currentBreakpoint)
@@ -374,6 +442,7 @@ export default function WidgetLayout({
   // SPEC-UX-010 REQ-UX-010-008: 편집 모드 자동 종료 + 카운트다운 표시 + 활동 시 리셋
   // 사용자 피드백 반영: 30초 → 120초로 연장, 남은 시간을 편집 버튼에 표시,
   // 위젯 영역에서 pointer/keyboard 활동 시 타이머 리셋
+  // SPEC-UX-011: 드래그 중(isDragInProgress=true)에는 타이머 카운트다운 정지
   const AUTO_EXIT_SECONDS = 120
   const [remainingSeconds, setRemainingSeconds] = useState<number>(AUTO_EXIT_SECONDS)
   const lastActivityRef = useRef<number>(Date.now())
@@ -387,7 +456,13 @@ export default function WidgetLayout({
     setRemainingSeconds(AUTO_EXIT_SECONDS)
 
     // 1초마다 남은 시간 계산, 0 도달 시 편집 모드 종료
+    // SPEC-UX-011: isDragInProgress가 true이면 lastActivityRef를 현재 시각으로 갱신 (타이머 정지 효과)
     const intervalId = setInterval(() => {
+      if (isDragInProgress) {
+        // 드래그 중에는 활동 시각 갱신으로 타이머 정지
+        lastActivityRef.current = Date.now()
+        return
+      }
       const elapsed = Math.floor((Date.now() - lastActivityRef.current) / 1000)
       const remaining = Math.max(0, AUTO_EXIT_SECONDS - elapsed)
       setRemainingSeconds(remaining)
@@ -408,7 +483,7 @@ export default function WidgetLayout({
       document.removeEventListener('pointerdown', onActivity, true)
       document.removeEventListener('keydown', onActivity, true)
     }
-  }, [isEditing, autoExitEnabled, setEditMode])
+  }, [isEditing, autoExitEnabled, setEditMode, isDragInProgress])
 
   const handlePivotModeClick = (): void => {
     onTogglePivotMode()
@@ -767,7 +842,7 @@ export default function WidgetLayout({
           margin={GRID_MARGIN}
           onLayoutChange={onLayoutChangeGuarded}
           onBreakpointChange={(bp) => setCurrentBreakpoint(bp)}
-          draggableHandle=".widget-drag-handle"
+          draggableHandle="[data-widget-handle]"
           isResizable={isEditing && !isMobile && !isMobileBreakpoint}
           isDraggable={isEditing && !isMobile && !isMobileBreakpoint}
           measureBeforeMount={false}
@@ -775,8 +850,9 @@ export default function WidgetLayout({
           onDragStop={onDragStop}
         >
           {/* Clock 위젯 — REQ-UX-007-010: 헤더 없으므로 셀 래퍼에 drag-handle 부여 (D1)
-              REQ-UX-009-003: DragHandleSlot level="widget" 추가 (시각 마커, 절대 위치) */}
-          <div key="clock" className="widget-drag-handle" style={{ background: 'transparent', position: 'relative' }}>
+              REQ-UX-009-003: DragHandleSlot level="widget" 추가 (시각 마커, 절대 위치)
+              SPEC-UX-011: data-widget-handle 속성 추가 — draggableHandle 셀렉터 [data-widget-handle] 매칭 */}
+          <div key="clock" className="widget-drag-handle" data-widget-handle style={{ background: 'transparent', position: 'relative' }}>
             <DragHandleSlot
               level="widget"
               ariaLabel="위젯 이동: 시계"
@@ -786,8 +862,9 @@ export default function WidgetLayout({
           </div>
 
           {/* SearchBar 위젯 — 데스크탑에서만 그리드 내부에 표시 (REQ-UX-007-010: 셀 래퍼에 drag-handle)
-              REQ-UX-009-003: DragHandleSlot level="widget" 추가 (시각 마커, 절대 위치) */}
-          <div key="search" className="widget-drag-handle" style={{ background: 'transparent', position: 'relative' }}>
+              REQ-UX-009-003: DragHandleSlot level="widget" 추가 (시각 마커, 절대 위치)
+              SPEC-UX-011: data-widget-handle 속성 추가 */}
+          <div key="search" className="widget-drag-handle" data-widget-handle style={{ background: 'transparent', position: 'relative' }}>
             <DragHandleSlot
               level="widget"
               ariaLabel="위젯 이동: 검색"
@@ -814,8 +891,11 @@ export default function WidgetLayout({
             {/* 즐겨찾기 위젯 타이틀 — react-grid-layout 전용 드래그 핸들 (BookmarkCard 카테고리 헤더와 분리)
                 widget-drag-handle 클래스는 위젯 타이틀에만 부여하여 내부 dnd-kit DnD와의 충돌 제거
                 REQ-UX-009-003: DragHandleSlot level="widget" 추가 (시각 마커) */}
+            {/* SPEC-UX-011: data-widget-handle 속성 추가 — draggableHandle 셀렉터 [data-widget-handle] 매칭
+                즐겨찾기 위젯 타이틀에만 부여 (내부 DnD와 충돌 방지) */}
             <div
               className="widget-drag-handle"
+              data-widget-handle
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -844,7 +924,8 @@ export default function WidgetLayout({
                 즐겨찾기
               </span>
             </div>
-            {/* REQ-UX-008-011 D2: closestCorners — 빈 카테고리 포함 droppable 경계 인식 */}
+            {/* REQ-UX-008-011 D2: closestCorners — 빈 카테고리 포함 droppable 경계 인식
+                SPEC-UX-011: accessibility announcements + autoScroll 엣지 임계값 조정 */}
             <DndContext
               sensors={categorySensors}
               collisionDetection={closestCorners}
@@ -852,17 +933,33 @@ export default function WidgetLayout({
               onDragOver={handleDragOver}
               onDragEnd={handleDragEnd}
               onDragCancel={handleDragCancel}
+              accessibility={{
+                announcements: dndAnnouncements,
+                screenReaderInstructions: {
+                  draggable: '드래그하려면 스페이스바를 누르세요. 방향키로 이동하고, 스페이스바로 놓으세요. 취소하려면 Esc를 누르세요.',
+                },
+              }}
+              // BUGFIX: gridAutoRows: 220px로 행 높이가 고정되므로 위젯 내부 스크롤도
+              // jitter를 일으키지 않는다. autoScroll을 위젯 내부에 허용하여
+              // row2 카드에 드래그로 자연스럽게 도달할 수 있게 한다.
+              autoScroll={{ threshold: { x: 0.1, y: 0.2 } }}
             >
-              {/* REQ-UX-007-011: 카테고리 자체 정렬용 SortableContext (SPEC-UX-007 유지) */}
-              <SortableContext items={displayBookmarks.map((b) => b.id)} strategy={rectSortingStrategy}>
+              {/* REQ-UX-007-011: 카테고리 자체 정렬용 SortableContext (SPEC-UX-007 유지)
+                  SPEC-UX-011: items useMemo 배열 사용 — 드래그 중 배열 불안정 방지 */}
+              <SortableContext items={displayBookmarkIds} strategy={rectSortingStrategy}>
                 <div
                   style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                    // BUGFIX: 행 높이를 카드 height(220)와 동일하게 고정.
+                    // 카드 height 가변이거나 행마다 콘텐츠가 달라도 행 높이가 일정해,
+                    // 드래그 swap 시 row 높이 변동으로 인한 세로 jitter가 발생하지 않는다.
+                    gridAutoRows: '220px',
                     gap: 16,
                     padding: 16,
                     minWidth: 0,
                     boxSizing: 'border-box',
+                    alignItems: 'start',
                   }}
                 >
                   {displayBookmarks.map((cat) => (
@@ -874,7 +971,12 @@ export default function WidgetLayout({
                   ))}
                 </div>
               </SortableContext>
-              {/* REQ-UX-008-012: 드래그 중 링크 미러 표시 — 단순 카드 카피 */}
+              {/* REQ-UX-008-012: 드래그 중 링크/그룹 미러 표시
+                  SPEC-UX-011: 링크 — scale(1.02) + ring + shadow / 그룹 — 컴팩트 카드
+                  BUGFIX: react-grid-layout이 부모 셀에 CSS transform을 적용해
+                  DragOverlay 좌표계가 시프트되는 문제 → document.body로 포털하여
+                  ghost가 마우스 커서를 정확히 따라가도록 한다. */}
+              {createPortal(
               <DragOverlay>
                 {activeLink ? (
                   <div
@@ -889,7 +991,10 @@ export default function WidgetLayout({
                       fontSize: 13,
                       opacity: 1,
                       cursor: 'grabbing',
-                      boxShadow: '0 8px 24px var(--shadow)',
+                      transform: 'scale(1.02)',
+                      boxShadow: '0 12px 32px var(--shadow)',
+                      outline: '2px solid var(--accent)',
+                      outlineOffset: 1,
                     }}
                   >
                     <span
@@ -903,8 +1008,36 @@ export default function WidgetLayout({
                       {activeLink.name}
                     </span>
                   </div>
+                ) : activeCategory ? (
+                  // SPEC-UX-011: 그룹 DragOverlay — 헤더(아이콘+이름) + 링크 수 표시
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '12px 16px',
+                      borderRadius: 12,
+                      background: 'var(--card-bg)',
+                      border: '1px solid var(--accent)',
+                      color: 'var(--text-primary)',
+                      fontSize: 14,
+                      opacity: 0.95,
+                      cursor: 'grabbing',
+                      transform: 'scale(1.02)',
+                      boxShadow: '0 12px 32px var(--shadow)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <span style={{ fontSize: 20 }}>{activeCategory.icon}</span>
+                    <span style={{ fontWeight: 700 }}>{activeCategory.name}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
+                      · {activeCategory.links.length}개
+                    </span>
+                  </div>
                 ) : null}
-              </DragOverlay>
+              </DragOverlay>,
+              document.body,
+              )}
             </DndContext>
           </div>
 

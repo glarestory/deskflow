@@ -1,5 +1,6 @@
 // SortableLink.tsx — @dnd-kit/sortable 기반 드래그 가능한 북마크 링크 항목 컴포넌트
 // SPEC-UX-009: 링크 핸들 슬롯 분리 — listeners를 핸들 영역에만 spread
+// SPEC-UX-011: 확장 드래그 영역 + 소스 placeholder 시각 개선
 import React from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -41,16 +42,23 @@ export default function SortableLink({ link, isEditing, onUsage, categoryId }: S
     data: { type: 'link' as const, categoryId },
   })
 
+  // SPEC-UX-011: 소스 placeholder — opacity 0.4 + dashed outline + accent-soft 배경
+  // BUGFIX: DragOverlay 사용 시 active 링크 자체에는 transform을 적용하지 않는다.
+  // 그렇지 않으면 DragOverlay ghost와 별개로 원본 링크까지 포인터를 따라가
+  // "링크가 화살표 끝으로 점프"하는 현상이 발생한다 (dnd-kit + DragOverlay 표준 패턴).
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition: transition ?? 'background .15s',
-    opacity: isDragging ? 0.5 : 1,
+    transform: isDragging ? undefined : CSS.Transform.toString(transform),
+    transition: isDragging ? undefined : (transition ?? 'background .15s'),
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 10 : undefined,
+    // SPEC-UX-011: 드래그 중 dashed outline + accent-soft 배경
+    outline: isDragging ? '1.5px dashed var(--accent-soft, rgba(99,102,241,0.4))' : undefined,
+    background: isDragging ? 'var(--accent-soft, rgba(99,102,241,0.08))' : 'var(--link-bg)',
     display: 'flex',
     alignItems: 'center',
     gap: 0,
     padding: '2px 12px 2px 0',
     borderRadius: 10,
-    background: 'var(--link-bg)',
     textDecoration: 'none',
     color: 'var(--text-primary)',
     fontSize: 13,
@@ -65,6 +73,7 @@ export default function SortableLink({ link, isEditing, onUsage, categoryId }: S
     // REQ-UX-009-013: setNodeRef는 <a> 태그에 유지 (dnd-kit sortable 노드 참조)
     // attributes는 <a>에 spread (sortable 접근성 속성)
     // REQ-UX-009-008: listeners는 DragHandleSlot에만 spread — <a> 본문 제거
+    // SPEC-UX-011: 편집 모드에서 링크 이름 텍스트도 드래그 가능 (listeners를 drag-area wrapper에 spread)
     <a
       ref={setNodeRef}
       href={isEditing ? undefined : link.url}
@@ -84,7 +93,8 @@ export default function SortableLink({ link, isEditing, onUsage, categoryId }: S
         if (!isDragging) e.currentTarget.style.background = 'var(--link-hover)'
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'var(--link-bg)'
+        // 드래그 중이 아닐 때만 배경 복원
+        if (!isDragging) e.currentTarget.style.background = 'var(--link-bg)'
       }}
     >
       {/* REQ-UX-009-005: 링크 핸들 슬롯 — 링크 행의 첫 자식
@@ -94,19 +104,41 @@ export default function SortableLink({ link, isEditing, onUsage, categoryId }: S
         ariaLabel={`링크 이동: ${link.name}`}
         listeners={listeners as Record<string, unknown>}
         isEditing={isEditing}
+        roleDescription="정렬 가능한 링크"
       />
-      <span
-        style={{
-          fontWeight: 500,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          flex: 1,
-          paddingLeft: 4,
-        }}
-      >
-        {link.name}
-      </span>
+      {/* SPEC-UX-011: 편집 모드에서 링크 이름 텍스트에도 drag listeners 확장
+          비편집 모드에서는 일반 span으로 — 링크 클릭 정상 동작 */}
+      {isEditing ? (
+        <span
+          style={{
+            fontWeight: 500,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            flex: 1,
+            paddingLeft: 4,
+            cursor: 'grab',
+            touchAction: 'none',
+            userSelect: 'none',
+          }}
+          {...(listeners as Record<string, unknown>)}
+        >
+          {link.name}
+        </span>
+      ) : (
+        <span
+          style={{
+            fontWeight: 500,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            flex: 1,
+            paddingLeft: 4,
+          }}
+        >
+          {link.name}
+        </span>
+      )}
     </a>
   )
 }

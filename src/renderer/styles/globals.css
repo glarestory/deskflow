@@ -176,6 +176,34 @@ body.is-dragging-widget {
   overscroll-behavior: contain;
 }
 
+/* ─── SPEC-UX-011: 드래그 UX 개선 추가 스타일 ───────────────────────────────── */
+
+/* 그룹 헤더 행 호버 — 편집 모드에서 비인터랙티브 드래그 영역 밝기 상승 */
+body.is-edit-mode [data-category-handle]:hover {
+  background: var(--surface-2, rgba(255,255,255,0.06));
+}
+
+/* 링크 행 호버 — 편집 모드에서 핸들 아이콘 opacity 상승 */
+body.is-edit-mode a:hover [data-link-handle] {
+  opacity: 1 !important;
+}
+body.is-edit-mode [data-category-handle]:hover [data-group-handle] {
+  opacity: 1 !important;
+}
+
+/* 그룹 핸들 — grabbing 상태 커서 */
+body.is-edit-mode [data-category-handle]:active {
+  cursor: grabbing;
+}
+
+/* 링크 이름 텍스트 drag-area — 편집 모드에서 grab 커서 */
+body.is-edit-mode a span[data-drag-text] {
+  cursor: grab;
+}
+body.is-edit-mode a span[data-drag-text]:active {
+  cursor: grabbing;
+}
+
 /* CSS Reset */
 *,
 *::before,

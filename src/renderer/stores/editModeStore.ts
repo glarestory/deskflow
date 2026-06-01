@@ -1,9 +1,9 @@
-// 전역 편집 모드(Global Edit Mode) 상태를 관리하는 zustand 스토어 (SPEC-UX-007, SPEC-UX-010)
+// 전역 편집 모드(Global Edit Mode) 상태를 관리하는 zustand 스토어 (SPEC-UX-007, SPEC-UX-010, SPEC-UX-011)
 import { create } from 'zustand'
 
 /**
  * 전역 편집 모드 상태 인터페이스
- * REQ-UX-007-001, REQ-UX-010-008, REQ-UX-010-011
+ * REQ-UX-007-001, REQ-UX-010-008, REQ-UX-010-011, SPEC-UX-011
  */
 interface EditModeState {
   /** 현재 편집 모드 활성 여부 */
@@ -12,6 +12,11 @@ interface EditModeState {
   autoExitEnabled: boolean
   /** 빈 카테고리 숨김 여부 (default: false) — REQ-UX-010-011 */
   hideEmptyCategories: boolean
+  /**
+   * SPEC-UX-011: dnd-kit 드래그 진행 중 여부.
+   * 자동 종료 타이머 일시 중지에 사용된다.
+   */
+  isDragging: boolean
   /** isEditing 값을 반전 */
   toggle: () => void
   /** isEditing 값을 직접 설정 */
@@ -20,6 +25,8 @@ interface EditModeState {
   setAutoExitEnabled: (enabled: boolean) => void
   /** 빈 카테고리 숨김 설정 — localStorage 영속화 */
   setHideEmptyCategories: (hide: boolean) => void
+  /** SPEC-UX-011: 드래그 상태 설정 — 타이머 일시 중지 신호 */
+  setDragging: (dragging: boolean) => void
 }
 
 // 영속화 키
@@ -39,7 +46,7 @@ function readBool(key: string, defaultValue: boolean): boolean {
 
 // @MX:ANCHOR: [AUTO] useEditModeStore — 전역 편집 모드 상태의 단일 진입점
 // @MX:REASON: [AUTO] WidgetLayout, BookmarkCard, HeaderMoreMenu 등 다수 컴포넌트가 의존
-// @MX:SPEC: SPEC-UX-007, SPEC-UX-010
+// @MX:SPEC: SPEC-UX-007, SPEC-UX-010, SPEC-UX-011
 export const useEditModeStore = create<EditModeState>((set) => ({
   // REQ-UX-007-020: 앱 부팅 시 기본값은 항상 false
   isEditing: false,
@@ -47,6 +54,8 @@ export const useEditModeStore = create<EditModeState>((set) => ({
   autoExitEnabled: readBool(AUTO_EXIT_KEY, true),
   // REQ-UX-010-011: 빈 카테고리 숨김 기본값 false, localStorage에서 복원
   hideEmptyCategories: readBool(HIDE_EMPTY_KEY, false),
+  // SPEC-UX-011: 드래그 진행 중 여부 (기본값 false)
+  isDragging: false,
 
   toggle: () => set((s) => ({ isEditing: !s.isEditing })),
   set: (value) => set({ isEditing: value }),
@@ -70,6 +79,9 @@ export const useEditModeStore = create<EditModeState>((set) => ({
     }
     set({ hideEmptyCategories: hide })
   },
+
+  // SPEC-UX-011: 드래그 상태 설정 — 자동 종료 타이머 일시 중지용
+  setDragging: (dragging) => set({ isDragging: dragging }),
 }))
 
 /**

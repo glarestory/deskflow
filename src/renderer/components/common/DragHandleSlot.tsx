@@ -16,6 +16,12 @@ interface DragHandleSlotProps {
   listeners?: Record<string, unknown>
   /** 편집 모드 여부 — true 일 때만 포커스/listeners 활성 */
   isEditing: boolean
+  /**
+   * SPEC-UX-011: aria-roledescription 오버라이드.
+   * dnd-kit 기본값은 "sortable" — 한국어 변환에 사용.
+   * 예: "정렬 가능한 그룹", "정렬 가능한 링크"
+   */
+  roleDescription?: string
 }
 
 // 레벨별 아이콘 크기 맵 (REQ-UX-009-003/004/005)
@@ -55,9 +61,15 @@ export function DragHandleSlot({
   attributes,
   listeners,
   isEditing,
+  roleDescription,
 }: DragHandleSlotProps): React.JSX.Element {
   const Icon = ICON_MAP[level]
   const dataAttr = DATA_ATTR_MAP[level]
+
+  // SPEC-UX-011: dnd-kit attributes에 aria-roledescription 한국어 오버라이드 적용
+  const mergedAttributes = isEditing && attributes
+    ? { ...attributes, ...(roleDescription ? { 'aria-roledescription': roleDescription } : {}) }
+    : {}
 
   return (
     <span
@@ -67,7 +79,7 @@ export function DragHandleSlot({
       // data 속성 동적 할당 — CSS 토큰 셀렉터 매칭
       {...{ [dataAttr]: '' }}
       // 편집 모드 ON 시에만 dnd-kit attributes/listeners spread
-      {...(isEditing && attributes ? attributes : {})}
+      {...mergedAttributes}
       {...(isEditing && listeners ? listeners : {})}
     >
       <Icon size={SIZE_MAP[level]} aria-hidden="true" />
