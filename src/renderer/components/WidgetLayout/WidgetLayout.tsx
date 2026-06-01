@@ -136,7 +136,9 @@ export default function WidgetLayout({
     }),
   )
 
-  const { reorderCategories, updateBookmark, moveLinkBetweenGroups } = useBookmarkStore()
+  // SPEC-UX-012 REQ-UX-012-014: moveLinkBetweenGroups store 액션은 보존 (후속 SPEC 재도입 용이)
+  // 본 SPEC에서 cross-group 드롭 경로가 no-op이므로 직접 호출하지 않음 — _prefix로 lint 억제
+  const { reorderCategories, updateBookmark, moveLinkBetweenGroups: _moveLinkBetweenGroups } = useBookmarkStore()
 
   // D7 옵션 B: dragging 중 in-memory 임시 상태 (영속화는 dragEnd에서만)
   const [localBookmarks, setLocalBookmarks] = useState<Category[] | null>(null)
@@ -290,17 +292,17 @@ export default function WidgetLayout({
           if (oldIndex === -1 || newIndex === -1) return
           updateBookmark({ ...cat, links: arrayMove(cat.links, oldIndex, newIndex) })
         } else {
-          // REQ-UX-008-007: 그룹 간 이동 — moveLinkBetweenGroups 1회 호출
-          const toCat = bookmarks.find((b) => b.id === finalTargetCategoryId)
-          if (!toCat) return
-          const overLinkIndex = toCat.links.findIndex((l) => l.id === String(over.id))
-          // over가 링크이면 그 인덱스, over가 droppable 컨테이너이면 끝(links.length)
-          const toIndex = overLinkIndex >= 0 ? overLinkIndex : toCat.links.length
-          moveLinkBetweenGroups(linkId, originalCategoryId, finalTargetCategoryId, toIndex)
+          // SPEC-UX-012 REQ-UX-012-014: cross-group 링크 이동 비목표 — no-op
+          // 아코디언 구조에서 카테고리 간 링크 이동은 의도적으로 비활성화
+          // 근거: 접힌 카테고리 드롭 모호성 + 레이아웃 가변성 (SPEC-UX-012 D4)
+          // store 액션(moveLinkBetweenGroups)은 보존 — 후속 SPEC에서 아코디언 친화적 드롭 UX 재도입 예정
+          // (이전 코드: moveLinkBetweenGroups(linkId, originalCategoryId, finalTargetCategoryId, toIndex))
+          return
         }
       }
     },
-    [bookmarks, reorderCategories, updateBookmark, moveLinkBetweenGroups, setDragging],
+    // SPEC-UX-012: moveLinkBetweenGroups는 cross-group 비목표로 no-op 처리되어 deps에서 제거
+    [bookmarks, reorderCategories, updateBookmark, setDragging],
   )
 
   // REQ-UX-008-013: dragCancel 시 임시 상태 복원 (영속화 없음)
@@ -969,19 +971,23 @@ export default function WidgetLayout({
               {/* REQ-UX-007-011: 카테고리 자체 정렬용 SortableContext (SPEC-UX-007 유지)
                   SPEC-UX-011: items useMemo 배열 사용 — 드래그 중 배열 불안정 방지 */}
               <SortableContext items={displayBookmarkIds} strategy={rectSortingStrategy}>
+                {/* SPEC-UX-012 REQ-UX-012-001: 고정 행 높이 그리드(gridAutoRows: 220px) 제거
+                    → 아코디언 세로 스택(flex, flexDirection: column)으로 변경
+                    레이아웃 선택 근거:
+                    - 아코디언 섹션은 펼침/접힘으로 높이가 가변 → 2열 grid는 서로 다른 행에서 jitter 유발
+                    - 세로 단일 컬럼 스택으로 각 카테고리가 독립적으로 높이 차지
+                    - 가로 공간 낭비 없음: 단일 컬럼이지만 각 카드 내부 칩은 flex-wrap으로 가로 활용
+                    - DragOverlay + DnD 재정렬 시: 접힌 카테고리(헤더만)는 일정 높이 → jitter 없음
+                      펼친 카테고리는 높이 가변이지만 드래그 대상이 헤더 핸들이므로 DragOverlay 미러로 처리
+                    NFR-002 회귀 방지: 접힌 상태에서만 카테고리 재정렬 권장 (UX 가이드) */}
                 <div
                   style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-                    // BUGFIX: 행 높이를 카드 height(220)와 동일하게 고정.
-                    // 카드 height 가변이거나 행마다 콘텐츠가 달라도 행 높이가 일정해,
-                    // 드래그 swap 시 row 높이 변동으로 인한 세로 jitter가 발생하지 않는다.
-                    gridAutoRows: '220px',
-                    gap: 16,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12,
                     padding: 16,
                     minWidth: 0,
                     boxSizing: 'border-box',
-                    alignItems: 'start',
                   }}
                 >
                   {displayBookmarks.map((cat) => (

@@ -346,6 +346,13 @@ body.is-edit-mode .react-grid-item {
   transition: outline-color 0.15s ease-out;
 }
 
+/* SPEC-UX-012: 아코디언 셰브론 회전 transition (펼침/접힘 시각 피드백)
+ * BookmarkCard.tsx의 ChevronDown 아이콘 rotate(180deg) 트랜지션과 연동
+ */
+[data-accordion-chevron] {
+  transition: transform 0.15s ease;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -360,6 +367,10 @@ body.is-edit-mode .react-grid-item {
   [data-group-handle],
   [data-link-handle],
   [data-widget-handle] {
+    transition: none;
+  }
+  /* SPEC-UX-012: 셰브론 회전 transition 비활성화 (접근성 준수) */
+  [data-accordion-chevron] {
     transition: none;
   }
 }

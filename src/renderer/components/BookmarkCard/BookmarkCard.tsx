@@ -1,6 +1,7 @@
 // BookmarkCard — 카테고리 북마크 카드 (SPEC-UX-007: 전역 편집 모드 통합, useSortable 지원)
+// SPEC-UX-012: 고정 높이(220px) 카드 → 멀티 확장 아코디언 + 칩 인라인 wrap 링크 재설계
 // @MX:NOTE: [AUTO] BookmarkCard — 카테고리 북마크 카드, dnd-kit 정렬 편집 모드 포함
-// @MX:SPEC: SPEC-UI-001, SPEC-UX-002, SPEC-UX-006, SPEC-UX-007, SPEC-UX-008, SPEC-UX-009, SPEC-UX-011
+// @MX:SPEC: SPEC-UI-001, SPEC-UX-002, SPEC-UX-006, SPEC-UX-007, SPEC-UX-008, SPEC-UX-009, SPEC-UX-011, SPEC-UX-012
 import React, { useRef, useMemo } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import {
@@ -9,8 +10,10 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { ChevronDown } from 'lucide-react'
 import { useUsageStore } from '../../stores/usageStore'
 import { useEditMode } from '../../stores/editModeStore'
+import { useFavoritesExpandStore } from '../../stores/favoritesExpandStore'
 import type { Category } from '../../types'
 import SortableLink from './SortableLink'
 // REQ-UX-009-004: 그룹 핸들 슬롯 컴포넌트
@@ -27,6 +30,13 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
 
   // REQ-UX-007-015: 로컬 isEditing 제거 — 전역 편집 모드 사용
   const { isEditing } = useEditMode()
+
+  // SPEC-UX-012: 카테고리 확장 상태 — useFavoritesExpandStore 구독
+  const isExpanded = useFavoritesExpandStore((s) => s.isExpanded(category.id))
+  const toggleExpand = useFavoritesExpandStore((s) => s.toggleExpand)
+
+  // SPEC-UX-012: 아코디언 패널 id — aria-controls 연결용
+  const panelId = `bookmark-panel-${category.id}`
 
   // REQ-UX-007-016: 카드 외부 클릭 cleanup useEffect 제거 (전역 토글로 통일)
   const cardRef = useRef<HTMLDivElement>(null)
@@ -54,11 +64,25 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
     outline: isDragging ? '1.5px dashed var(--accent-soft, rgba(99,102,241,0.4))' : undefined,
   }
 
-  // REQ-UX-008-003: 링크 grid 영역을 useDroppable로 등록 — 빈 카테고리도 drop target
+  // REQ-UX-008-003: 링크 칩 영역을 useDroppable로 등록 — 빈 카테고리도 drop target
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: category.id })
 
   // SPEC-UX-011: linkIds useMemo — 드래그 중 SortableContext id 배열 불안정 방지
   const linkIds = useMemo(() => category.links.map((l) => l.id), [category.links])
+
+  // SPEC-UX-012 D2: 헤더 클릭 토글 핸들러
+  // — 인터랙티브 컨트롤(⚙️, 핸들)이 아닌 헤더 영역 클릭 시 펼침/접힘 토글
+  const handleHeaderClick = () => {
+    toggleExpand(category.id)
+  }
+
+  // SPEC-UX-012 REQ-UX-012-007: 키보드 Enter/Space 토글
+  const handleHeaderKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      toggleExpand(category.id)
+    }
+  }
 
   return (
     <div
@@ -72,13 +96,9 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
         transition: 'transform .15s, box-shadow .15s',
         // @MX:NOTE: [AUTO] grid item 최소너비를 0으로 두어 내부 긴 텍스트가 카드를 밀어내지 않도록 함
         minWidth: 0,
-        // BUGFIX: 모든 카드 높이를 고정하여 드래그·재정렬 시 행 높이 변동으로 인한 세로 jitter 제거.
-        // (이전: minHeight:160 — 4링크 카드와 20링크 카드 높이가 200~420px 가변
-        //  → CSS Grid 행 높이가 swap 시 바뀌어 카드들이 위아래로 튀는 현상 발생)
-        // 카드 내부 링크 그리드가 flex:1로 남은 공간을 채우고 overflowY:auto로 스크롤
-        // 220px = 헤더(48) + 헤더 margin(14) + padding(36) + 링크 영역(~122 = 3행 표시)
-        height: 220,
-        overflow: 'hidden',
+        // SPEC-UX-012 REQ-UX-012-001: 고정 높이(220px) 제거 — 콘텐츠 기반 자연 확장
+        // 이전: height: 220, overflow: 'hidden'
+        // 변경 사유: 아코디언 펼침 시 콘텐츠 높이에 맞춰 자연 확장, 접힘 시 헤더만 표시
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -91,11 +111,10 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
         e.currentTarget.style.boxShadow = ''
       }}
     >
-      {/* 카테고리 헤더 — REQ-UX-007-010: useSortable listeners 만 사용
-          SPEC-UX-008 FIX: 위젯 자체 드래그 핸들(widget-drag-handle) 클래스 제거.
-          이전에는 react-grid-layout(.widget-drag-handle) 과 dnd-kit useSortable 이 동일 요소에서
-          포인터 이벤트를 경쟁해 그룹/링크 DnD 가 깨졌다. 위젯 자체는 위젯 상단 "즐겨찾기" 타이틀로 분리.
-          SPEC-UX-011: 헤더 행 전체(비인터랙티브 영역)에도 listeners 확장 — 클릭 가능 요소는 stopPropagation */}
+      {/* SPEC-UX-012: 카테고리 헤더 — 아코디언 토글 + 핸들 분리
+          D2: listeners를 DragHandleSlot에만 제한 (SPEC-UX-009 원형 회귀)
+          헤더 본문 클릭 = 펼침/접힘 토글, 그룹 핸들 = 카테고리 재정렬
+          SPEC-UX-008 FIX: widget-drag-handle 제거 (WidgetLayout 분리) */}
       <div
         ref={cardRef}
         data-category-handle
@@ -103,30 +122,51 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: 14,
-          // SPEC-UX-011: 편집 모드에서 헤더 행 전체에 grab 커서 (핸들 슬롯 외 영역 포함)
-          cursor: isEditing ? 'grab' : 'default',
+          // SPEC-UX-012: 펼침 시 하단 여백, 접힘 시 여백 없음
+          marginBottom: isExpanded ? 14 : 0,
+          // SPEC-UX-012: 헤더 클릭 = 토글 (편집 모드 무관)
+          cursor: 'pointer',
           touchAction: isEditing ? 'none' : undefined,
-          userSelect: isEditing ? 'none' : undefined,
+          userSelect: 'none',
           borderRadius: 8,
-          // SPEC-UX-011: 호버 시 배경 밝기 상승
           transition: 'background .12s',
+          // REQ-UX-012-017: 모바일 터치 hit-area 최소 44px
+          minHeight: 44,
         }}
-        // SPEC-UX-011: 헤더 행 전체에 dnd-kit listeners spread (편집 모드에서만)
-        {...(isEditing ? (listeners as Record<string, unknown>) : {})}
+        // SPEC-UX-012 REQ-UX-012-006: 헤더 클릭 = 펼침/접힘 토글
+        // D2: 헤더 행 전체 listeners spread 제거 — DragHandleSlot에만 제한
+        onClick={handleHeaderClick}
+        onKeyDown={handleHeaderKeyDown}
+        role="button"
+        aria-expanded={isExpanded}
+        aria-controls={panelId}
+        tabIndex={0}
       >
-        {/* REQ-UX-009-004: 그룹 핸들 슬롯 — 헤더의 첫 자식, 카테고리 아이콘 좌측
-            listeners를 이 슬롯에만 spread하여 카테고리 아이콘/이름 클릭과 분리
-            SPEC-UX-011: roleDescription 한국어 오버라이드 */}
-        <DragHandleSlot
-          level="group"
-          ariaLabel={`카테고리 이동: ${category.name}`}
-          attributes={attributes as Record<string, unknown>}
-          listeners={listeners as Record<string, unknown>}
-          isEditing={isEditing}
-          roleDescription="정렬 가능한 그룹"
-        />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* REQ-UX-009-004: 그룹 핸들 슬롯 래퍼 — 헤더의 첫 자식, 카테고리 아이콘 좌측
+            D2: listeners를 이 슬롯에만 spread하여 카테고리 이동과 헤더 토글 분리
+            SPEC-UX-012 REQ-UX-012-006: 래퍼 div의 onPointerDown stopPropagation으로 헤더 토글 버블링 차단 */}
+        <div
+          onPointerDown={(e) => {
+            // SPEC-UX-012 REQ-UX-012-006: 그룹 핸들 pointerdown이 헤더 onClick 토글로 버블링 방지
+            e.stopPropagation()
+          }}
+          onClick={(e) => {
+            // 그룹 핸들 클릭이 헤더 토글 onClick으로 버블링 방지
+            e.stopPropagation()
+          }}
+          style={{ display: 'flex', alignItems: 'center' }}
+        >
+          <DragHandleSlot
+            level="group"
+            ariaLabel={`카테고리 이동: ${category.name}`}
+            attributes={attributes as Record<string, unknown>}
+            listeners={listeners as Record<string, unknown>}
+            isEditing={isEditing}
+            roleDescription="정렬 가능한 그룹"
+          />
+        </div>
+        {/* 카테고리 아이콘 + 이름 + 링크 수 배지 (REQ-UX-012-005) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
           <span style={{ fontSize: 20 }}>{category.icon}</span>
           <span
             style={{
@@ -137,17 +177,39 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
           >
             {category.name}
           </span>
+          {/* SPEC-UX-012 REQ-UX-012-005: 링크 수 배지 "(N)" */}
+          <span
+            style={{
+              color: 'var(--text-muted)',
+              fontSize: 13,
+              fontWeight: 400,
+            }}
+          >
+            ({category.links.length})
+          </span>
         </div>
+        {/* SPEC-UX-012 REQ-UX-012-005: 펼침/접힘 셰브론 — ChevronDown rotate(180deg) */}
+        <ChevronDown
+          aria-hidden="true"
+          size={16}
+          style={{
+            color: 'var(--text-muted)',
+            // 펼침 시 180도 회전 (위쪽 화살표), 접힘 시 기본(아래쪽)
+            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform .15s ease',
+            flexShrink: 0,
+          }}
+        />
         {/* REQ-UX-007-015: ⚙️ 버튼 — 카테고리 메타 편집 모달 열기만 담당
-            SPEC-UX-011: stopPropagation으로 헤더 행 listeners 충돌 방지 */}
+            SPEC-UX-012 REQ-UX-012-006: stopPropagation으로 헤더 토글 차단 */}
         <button
           onClick={(e) => {
-            // dnd-kit의 포인터 이벤트와 충돌 방지
+            // 헤더 클릭 토글로 버블링 방지
             e.stopPropagation()
             onEdit(category)
           }}
           onPointerDown={(e) => {
-            // SPEC-UX-011: ⚙️ 버튼 pointerdown이 헤더 행 drag listener로 버블링 방지
+            // SPEC-UX-012: ⚙️ 버튼 pointerdown이 헤더 토글로 버블링 방지
             e.stopPropagation()
           }}
           data-hover-reveal
@@ -170,40 +232,34 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
         </button>
       </div>
 
-      {/* REQ-UX-008-002: BookmarkCard 내부 DndContext 제거 — WidgetLayout 단일 DndContext 사용 (D1)
+      {/* SPEC-UX-012 REQ-UX-012-008: 펼침 상태에서만 링크 칩 영역 렌더
+          REQ-UX-008-002: BookmarkCard 내부 DndContext 제거 — WidgetLayout 단일 DndContext 사용 (D1)
           REQ-UX-008-004: SortableContext에 id={category.id} 명시 — dnd-kit sortable.containerId 식별
-          REQ-UX-008-003: setDropRef로 스크롤 래퍼를 droppable 컨테이너로 등록
-          BUGFIX(SPEC-UX-011 회귀): display:grid + flex:1 단일 div에 minHeight:0 누락 시
-            암묵적 그리드 행이 flex 컨텍스트에서 압축되어 링크 텍스트가 겹치는 문제 수정.
-            → 스크롤 래퍼(flex:1, min-height:0, overflow-y:auto)와 내부 그리드를 분리. */}
-      <SortableContext id={category.id} items={linkIds} strategy={rectSortingStrategy}>
-        {/* 스크롤 래퍼: flex 자식으로 남은 공간 차지 + 실제 스크롤 컨테이너
-            setDropRef를 여기 배치하여 드롭 히트 영역 = 전체 스크롤 영역 (REQ-UX-008-003) */}
-        <div
-          ref={setDropRef}
-          data-scroll-wrapper
-          style={{
-            flex: 1,
-            // CRITICAL: flex 자식이 스크롤되려면 min-height:0 이 필수
-            // (기본값 min-height:auto 가 내용물 크기만큼 늘어나 overflow가 동작하지 않음)
-            minHeight: 0,
-            overflowY: 'auto',
-            minWidth: 0,
-            // SPEC-UX-011: 드롭 타겟 시각 강화 — dashed outline + inset shadow + 배경
-            background: isOver && isEditing ? 'var(--accent-subtle, rgba(99,102,241,0.08))' : undefined,
-            borderRadius: isOver && isEditing ? 8 : undefined,
-            outline: isOver && isEditing ? '1.5px dashed var(--accent, oklch(0.55 0.2 264))' : undefined,
-            boxShadow: isOver && isEditing ? 'inset 0 0 0 1.5px var(--accent, oklch(0.55 0.2 264))' : undefined,
-            transition: 'background .12s, outline .12s, box-shadow .12s',
-          }}
-        >
-          {/* 내부 그리드: 링크 아이템 레이아웃만 담당, 스크롤은 부모 래퍼가 처리 */}
+          REQ-UX-008-003: setDropRef로 칩 컨테이너를 droppable 컨테이너로 등록 */}
+      {isExpanded && (
+        <SortableContext id={category.id} items={linkIds} strategy={rectSortingStrategy}>
+          {/* SPEC-UX-012 REQ-UX-012-008: 칩 flex-wrap 컨테이너 (기존 스크롤 래퍼 + 2열 그리드 제거)
+              setDropRef 배치 — 드롭 히트 영역 = 전체 칩 영역
+              SPEC-UX-011: isOver 시각 — dashed outline + accent-subtle 배경 */}
           <div
+            ref={setDropRef}
+            id={panelId}
+            data-scroll-wrapper
+            role="region"
+            aria-label={`${category.name} 링크 목록`}
             style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
+              // SPEC-UX-012 REQ-UX-012-008: flex-wrap 칩 레이아웃 (2열 그리드 대체)
+              display: 'flex',
+              flexWrap: 'wrap',
               gap: 8,
-              // REQ-UX-008-003 D4: 빈 카테고리도 drop target hit-area 확보 (NFR-003 모바일)
+              minWidth: 0,
+              // SPEC-UX-011: 드롭 타겟 시각 강화
+              background: isOver && isEditing ? 'var(--accent-subtle, rgba(99,102,241,0.08))' : undefined,
+              borderRadius: isOver && isEditing ? 8 : undefined,
+              outline: isOver && isEditing ? '1.5px dashed var(--accent, oklch(0.55 0.2 264))' : undefined,
+              boxShadow: isOver && isEditing ? 'inset 0 0 0 1.5px var(--accent, oklch(0.55 0.2 264))' : undefined,
+              transition: 'background .12s, outline .12s, box-shadow .12s',
+              // REQ-UX-008-003 D4: 빈 카테고리도 drop target hit-area 확보
               minHeight: 48,
             }}
           >
@@ -216,12 +272,13 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
                 categoryId={category.id}
               />
             ))}
-            {/* SPEC-UX-010 REQ-UX-010-011: 빈 카테고리 placeholder (D5) */}
+            {/* SPEC-UX-010 REQ-UX-010-011: 빈 카테고리 placeholder (D6)
+                SPEC-UX-012 REQ-UX-012-014: cross-group 비목표이므로 "북마크가 없습니다"로 단순화 */}
             {category.links.length === 0 && (
               <div
                 data-empty-placeholder
                 style={{
-                  gridColumn: '1 / -1',
+                  flex: '1 1 100%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -234,12 +291,12 @@ export default function BookmarkCard({ category, onEdit }: BookmarkCardProps): R
                   userSelect: 'none',
                 }}
               >
-                {isEditing ? '여기로 드래그하여 추가' : '북마크가 없습니다'}
+                북마크가 없습니다
               </div>
             )}
           </div>
-        </div>
-      </SortableContext>
+        </SortableContext>
+      )}
     </div>
   )
 }

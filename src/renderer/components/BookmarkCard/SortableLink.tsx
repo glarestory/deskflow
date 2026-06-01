@@ -1,6 +1,7 @@
 // SortableLink.tsx — @dnd-kit/sortable 기반 드래그 가능한 북마크 링크 항목 컴포넌트
 // SPEC-UX-009: 링크 핸들 슬롯 분리 — listeners를 핸들 영역에만 spread
 // SPEC-UX-011: 확장 드래그 영역 + 소스 placeholder 시각 개선
+// SPEC-UX-012: 칩(chip) 인라인 wrap 스타일 — truncation 완화 + maxWidth 200px
 import React from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -26,6 +27,7 @@ interface SortableLinkProps {
  * REQ-UX-006-008: DndContext 내에서 useSortable 을 사용하는 정렬 가능 링크 항목
  * REQ-UX-006-009: isEditing=false 이면 일반 <a> 클릭 동작만 허용
  * REQ-UX-008-005: data.current.type='link', data.current.categoryId 로 카테고리 식별
+ * SPEC-UX-012: 칩 스타일 — flex: '0 0 auto', maxWidth: 200px, padding: '4px 10px'
  */
 export default function SortableLink({ link, isEditing, onUsage, categoryId }: SortableLinkProps): React.JSX.Element {
   const {
@@ -57,15 +59,21 @@ export default function SortableLink({ link, isEditing, onUsage, categoryId }: S
     display: 'flex',
     alignItems: 'center',
     gap: 0,
-    padding: '2px 12px 2px 0',
+    // SPEC-UX-012 REQ-UX-012-009: 칩 컴팩트 패딩 (4px 10px) — 이전: '2px 12px 2px 0'
+    padding: '4px 10px 4px 0',
+    // SPEC-UX-012 REQ-UX-012-009: 칩 모서리 둥글게
     borderRadius: 10,
     textDecoration: 'none',
     color: 'var(--text-primary)',
+    // SPEC-UX-012 REQ-UX-012-009: 폰트 크기 13px 유지
     fontSize: 13,
-    minWidth: 0,
+    // SPEC-UX-012 REQ-UX-012-010: 칩 width = 내용 기반 (flex: '0 0 auto')
+    // — 카드 폭 절반에 강제되지 않음 (기존: minWidth: 0, overflow: 'hidden')
+    flex: '0 0 auto',
+    // SPEC-UX-012 REQ-UX-012-010: maxWidth 200px — truncation 완화 (기존 2열 그리드 폭 절반 대비 훨씬 넓음)
+    maxWidth: 200,
     overflow: 'hidden',
     // REQ-UX-009-008: 편집 모드에서도 링크 본문(이름) 클릭은 드래그 시작 안 함
-    // — cursor는 링크 본문과 핸들이 다름. 링크 행 자체는 default
     cursor: 'default',
   }
 
@@ -73,7 +81,7 @@ export default function SortableLink({ link, isEditing, onUsage, categoryId }: S
     // REQ-UX-009-013: setNodeRef는 <a> 태그에 유지 (dnd-kit sortable 노드 참조)
     // attributes는 <a>에 spread (sortable 접근성 속성)
     // REQ-UX-009-008: listeners는 DragHandleSlot에만 spread — <a> 본문 제거
-    // SPEC-UX-011: 편집 모드에서 링크 이름 텍스트도 드래그 가능 (listeners를 drag-area wrapper에 spread)
+    // SPEC-UX-011: 편집 모드에서 링크 이름 텍스트에도 drag listeners 확장
     <a
       ref={setNodeRef}
       href={isEditing ? undefined : link.url}
@@ -107,7 +115,8 @@ export default function SortableLink({ link, isEditing, onUsage, categoryId }: S
         roleDescription="정렬 가능한 링크"
       />
       {/* SPEC-UX-011: 편집 모드에서 링크 이름 텍스트에도 drag listeners 확장
-          비편집 모드에서는 일반 span으로 — 링크 클릭 정상 동작 */}
+          비편집 모드에서는 일반 span으로 — 링크 클릭 정상 동작
+          SPEC-UX-012 REQ-UX-012-010: maxWidth 내 이름 표시, 초과 시 ellipsis (truncation 완화) */}
       {isEditing ? (
         <span
           style={{
@@ -115,6 +124,7 @@ export default function SortableLink({ link, isEditing, onUsage, categoryId }: S
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
+            // SPEC-UX-012: flex: 1은 유지하되 부모 maxWidth(200px)로 제한
             flex: 1,
             paddingLeft: 4,
             cursor: 'grab',
