@@ -15,6 +15,7 @@ import { usePomodoroStore } from './stores/pomodoroStore'
 import { useCapsuleStore } from './stores/capsuleStore'
 import { useEmbeddingStore } from './stores/embeddingStore'
 import { useRagStore } from './stores/ragStore'
+import { useWidgetVisibilityStore } from './stores/widgetVisibilityStore'
 import { setUserStorage } from './lib/storage'
 import { migrateLocalToFirestore } from './lib/migration'
 import { darkTheme, lightTheme } from './styles/themes'
@@ -49,6 +50,8 @@ export default function App(): JSX.Element {
   // @MX:NOTE: [AUTO] SPEC-WIDGET-004: pomodoroStore 설정 복원
   // 버그 수정: loadSettings 부재로 focus/break 설정이 앱 재시작 시 기본값으로 돌아감
   const { loadSettings: loadPomodoroSettings } = usePomodoroStore()
+  // SPEC-WIDGET-TOGGLE-001: 위젯 표시/숨김 상태 복원
+  const loadWidgetVisibility = useWidgetVisibilityStore((s) => s.loadVisibility)
   // @MX:NOTE: [AUTO] SPEC-CAPSULE-001: capsuleStore 로드 + 캡슐 액션 (REQ-003, REQ-006, REQ-018)
   const {
     loadCapsules,
@@ -98,6 +101,8 @@ export default function App(): JSX.Element {
       void loadPomodoroSettings()
       // SPEC-CAPSULE-001: 저장된 캡슐 복원
       void loadCapsules()
+      // SPEC-WIDGET-TOGGLE-001: 위젯 표시/숨김 상태 복원
+      void loadWidgetVisibility()
 
       // @MX:NOTE: [AUTO] SPEC-SEARCH-RAG-001 AC-012 — RAG 초기화 체인
       // 1) 임베딩 복원 → 2) RAG 설정 복원 → 3) health check (백그라운드) → 4) 누락 링크 인덱싱
@@ -163,7 +168,7 @@ export default function App(): JSX.Element {
     }
 
     void setupAndLoad()
-  }, [user, authLoading, loadBookmarks, loadTodos, loadTheme, loadLayout, loadMode, loadFeeds, loadPomodoroSettings, loadCapsules])
+  }, [user, authLoading, loadBookmarks, loadTodos, loadTheme, loadLayout, loadMode, loadFeeds, loadPomodoroSettings, loadCapsules, loadWidgetVisibility])
 
   // @MX:NOTE: [AUTO] SPEC-CAPSULE-001 REQ-014: Cmd/Ctrl+Shift+N — 신규 캡슐 생성 단축키 (AC-023)
   // Hook은 early return 이전에 호출되어야 함 (React Hooks 규칙)

@@ -1,5 +1,6 @@
 // HeaderMoreMenu.tsx — 모바일(sm 이하) 헤더에서 축소된 7개 액션을 담는 More 메뉴 컴포넌트
 import { useState, useEffect, useRef } from 'react'
+import WidgetVisibilityMenu from './WidgetVisibilityMenu'
 
 /** HeaderMoreMenu props */
 export interface HeaderMoreMenuProps {
@@ -147,6 +148,9 @@ export default function HeaderMoreMenu({
           >
             레이아웃 초기화
           </button>
+          {/* SPEC-WIDGET-TOGGLE-001: 위젯 표시/숨김 인라인 섹션 */}
+          <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+          <WidgetVisibilityMenu variant="compact" />
           <button
             data-testid="more-pivot"
             style={menuItemStyle}
