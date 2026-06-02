@@ -39,6 +39,14 @@ export default function NotesWidget(): JSX.Element {
   return (
     <div
       style={{
+        // 위젯이 그리드 셀 높이를 정확히 채우도록 flex 컬럼 구성 (TodoWidget/FeedWidget 패턴).
+        // 이전: 높이 미지정 + textarea minHeight:200 → 카드가 셀을 넘쳐 래퍼에 스크롤 발생.
+        height: '100%',
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        minHeight: 0,
         background: 'var(--card-bg)',
         borderRadius: 16,
         padding: '18px 20px',
@@ -72,7 +80,10 @@ export default function NotesWidget(): JSX.Element {
         placeholder="여기에 메모를 작성하세요..."
         style={{
           width: '100%',
-          minHeight: 200,
+          // 남은 셀 높이를 정확히 채움 — 고정 minHeight 제거로 불필요한 스크롤 방지.
+          // 텍스트가 넘칠 때만 textarea 내부 스크롤이 동작한다.
+          flex: 1,
+          minHeight: 0,
           padding: 12,
           borderRadius: 10,
           border: '1px solid var(--border)',
@@ -80,7 +91,7 @@ export default function NotesWidget(): JSX.Element {
           color: 'var(--text-primary)',
           fontSize: 13,
           outline: 'none',
-          resize: 'vertical',
+          resize: 'none',
           lineHeight: 1.7,
           boxSizing: 'border-box',
         }}
