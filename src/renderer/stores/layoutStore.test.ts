@@ -57,6 +57,7 @@ describe('layoutStore', () => {
   })
 
   // REQ-006: 최소 크기 제약 적용
+  // Direction A — "Search + Favorites 중심 허브" 레이아웃 검증
   it('clock 위젯의 기본 위치와 크기가 SPEC과 일치해야 한다', async () => {
     mockGet.mockResolvedValue({ value: null })
     const { useLayoutStore } = await import('./layoutStore')
@@ -65,9 +66,9 @@ describe('layoutStore', () => {
     expect(clock).toBeDefined()
     expect(clock?.x).toBe(0)
     expect(clock?.y).toBe(0)
-    expect(clock?.w).toBe(5)
+    expect(clock?.w).toBe(3)
     expect(clock?.h).toBe(2)
-    expect(clock?.minW).toBe(3)
+    expect(clock?.minW).toBe(2)
     expect(clock?.minH).toBe(2)
   })
 
@@ -77,9 +78,9 @@ describe('layoutStore', () => {
     const { layout } = useLayoutStore.getState()
     const search = layout.find((l) => l.i === 'search')
     expect(search).toBeDefined()
-    expect(search?.x).toBe(5)
+    expect(search?.x).toBe(3)
     expect(search?.y).toBe(0)
-    expect(search?.w).toBe(7)
+    expect(search?.w).toBe(9)
     expect(search?.h).toBe(2)
     expect(search?.minW).toBe(4)
     expect(search?.minH).toBe(2)
@@ -94,7 +95,7 @@ describe('layoutStore', () => {
     expect(bookmarks?.x).toBe(0)
     expect(bookmarks?.y).toBe(2)
     expect(bookmarks?.w).toBe(8)
-    expect(bookmarks?.h).toBe(5)
+    expect(bookmarks?.h).toBe(6)
     expect(bookmarks?.minW).toBe(4)
     expect(bookmarks?.minH).toBe(4)
   })
@@ -108,9 +109,9 @@ describe('layoutStore', () => {
     expect(todo?.x).toBe(8)
     expect(todo?.y).toBe(2)
     expect(todo?.w).toBe(4)
-    expect(todo?.h).toBe(5)
+    expect(todo?.h).toBe(3)
     expect(todo?.minW).toBe(3)
-    expect(todo?.minH).toBe(3)
+    expect(todo?.minH).toBe(2)
   })
 
   it('notes 위젯의 기본 위치와 크기가 SPEC과 일치해야 한다', async () => {
@@ -120,11 +121,25 @@ describe('layoutStore', () => {
     const notes = layout.find((l) => l.i === 'notes')
     expect(notes).toBeDefined()
     expect(notes?.x).toBe(8)
-    expect(notes?.y).toBe(7)
+    expect(notes?.y).toBe(5)
     expect(notes?.w).toBe(4)
-    expect(notes?.h).toBe(4)
+    expect(notes?.h).toBe(3)
     expect(notes?.minW).toBe(3)
-    expect(notes?.minH).toBe(3)
+    expect(notes?.minH).toBe(2)
+  })
+
+  it('feed 위젯의 기본 위치와 크기가 SPEC과 일치해야 한다 (Direction A: 하단 전폭)', async () => {
+    mockGet.mockResolvedValue({ value: null })
+    const { useLayoutStore } = await import('./layoutStore')
+    const { layout } = useLayoutStore.getState()
+    const feed = layout.find((l) => l.i === 'feed')
+    expect(feed).toBeDefined()
+    expect(feed?.x).toBe(0)
+    expect(feed?.y).toBe(8)
+    expect(feed?.w).toBe(12)
+    expect(feed?.h).toBe(3)
+    expect(feed?.minW).toBe(4)
+    expect(feed?.minH).toBe(3)
   })
 
   // REQ-003: 레이아웃 변경 저장

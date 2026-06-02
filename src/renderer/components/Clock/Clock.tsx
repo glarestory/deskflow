@@ -32,39 +32,51 @@ export default function Clock(): JSX.Element {
   const greeting = getGreeting(now.getHours())
 
   return (
+    // w3 컴팩트 셀(약 25% 폭)에서도 시간·날짜가 오버플로우 없이 중앙 정렬되도록
+    // clamp 상한을 3rem으로 낮추고, greeting은 작은 폰트로 한 줄 유지
     <div
       style={{
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
+        alignItems: 'center',
         textAlign: 'center',
+        overflow: 'hidden',
+        padding: '0 8px',
+        boxSizing: 'border-box',
       }}
     >
       <div
         style={{
-          fontSize: 18,
-          fontWeight: 600,
-          color: 'var(--text-primary)',
-          marginBottom: 4,
+          fontSize: 12,
+          fontWeight: 500,
+          color: 'var(--text-muted)',
+          marginBottom: 2,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          width: '100%',
         }}
       >
-        {greeting} 👋
+        {greeting}
       </div>
       <div
         style={{
           fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 'clamp(2rem, 8vw, 5rem)',
+          // w3 셀 폭에서 vw 기반 폰트가 너무 커지지 않도록 상한 3rem으로 조정
+          fontSize: 'clamp(1.5rem, 4vw, 3rem)',
           fontWeight: 700,
-          letterSpacing: -2,
+          letterSpacing: -1,
           color: 'var(--text-primary)',
           lineHeight: 1,
+          whiteSpace: 'nowrap',
         }}
       >
         {time}
         <span
           data-testid="clock-seconds"
-          style={{ fontSize: 20, opacity: 0.4, marginLeft: 4 }}
+          style={{ fontSize: '0.45em', opacity: 0.4, marginLeft: 3 }}
         >
           {secs}
         </span>
@@ -72,9 +84,13 @@ export default function Clock(): JSX.Element {
       <div
         data-testid="clock-date"
         style={{
-          fontSize: 13,
+          fontSize: 11,
           color: 'var(--text-muted)',
-          marginTop: 6,
+          marginTop: 4,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          width: '100%',
         }}
       >
         {date}

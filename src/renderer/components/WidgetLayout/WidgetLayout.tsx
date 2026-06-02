@@ -871,7 +871,7 @@ export default function WidgetLayout({
               SPEC-UX-011: data-widget-handle 속성 추가 — draggableHandle 셀렉터 [data-widget-handle] 매칭
               위젯 표시/숨김(widgetVisibilityStore) 통합 — isWidgetVisible 가드 적용 */}
           {isWidgetVisible('clock') && (
-            <div key="clock" className="widget-drag-handle" data-widget-handle style={{ background: 'transparent', position: 'relative' }}>
+            <div key="clock" className="widget-drag-handle" data-widget-handle style={{ background: 'transparent', position: 'relative', height: '100%' }}>
               <DragHandleSlot
                 level="widget"
                 ariaLabel="위젯 이동: 시계"
@@ -886,7 +886,7 @@ export default function WidgetLayout({
               SPEC-UX-011: data-widget-handle 속성 추가
               위젯 표시/숨김 통합 — isWidgetVisible 가드 적용 */}
           {isWidgetVisible('search') && (
-            <div key="search" className="widget-drag-handle" data-widget-handle style={{ background: 'transparent', position: 'relative' }}>
+            <div key="search" className="widget-drag-handle" data-widget-handle style={{ background: 'transparent', position: 'relative', height: '100%' }}>
               <DragHandleSlot
                 level="widget"
                 ariaLabel="위젯 이동: 검색"
@@ -907,9 +907,11 @@ export default function WidgetLayout({
               borderRadius: 12,
               border: '1px solid var(--border)',
               overflowX: 'hidden',
-              overflowY: 'auto',
+              overflowY: 'hidden',
               display: 'flex',
               flexDirection: 'column',
+              height: '100%',
+              boxSizing: 'border-box',
             }}
           >
             {/* 즐겨찾기 위젯 타이틀 — react-grid-layout 전용 드래그 핸들 (BookmarkCard 카테고리 헤더와 분리)
@@ -917,17 +919,20 @@ export default function WidgetLayout({
                 REQ-UX-009-003: DragHandleSlot level="widget" 추가 (시각 마커) */}
             {/* SPEC-UX-011: data-widget-handle 속성 추가 — draggableHandle 셀렉터 [data-widget-handle] 매칭
                 즐겨찾기 위젯 타이틀에만 부여 (내부 DnD와 충돌 방지) */}
+            {/* 즐겨찾기 헤더 — 다른 위젯 헤더(fontWeight 700, fontSize 15, gap 4, marginBottom equiv)와 통일
+                padding: 14px 20px로 위아래 패딩 확보, borderBottom으로 내용과 구분 */}
             <div
               className="widget-drag-handle"
               data-widget-handle
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 8,
-                padding: '2px 20px 2px 0',
+                gap: 4,
+                padding: '14px 20px',
                 cursor: isEditing && !isMobile && !isMobileBreakpoint ? 'grab' : 'default',
                 userSelect: 'none',
                 borderBottom: '1px solid var(--border)',
+                flexShrink: 0,
               }}
             >
               {/* REQ-UX-009-003: 위젯 핸들 시각 마커 — 타이틀 좌측에 GripVertical 아이콘 */}
@@ -942,12 +947,13 @@ export default function WidgetLayout({
                   fontWeight: 700,
                   fontSize: 15,
                   color: 'var(--text-primary)',
-                  letterSpacing: -0.3,
                 }}
               >
                 즐겨찾기
               </span>
             </div>
+            {/* 헤더 아래 스크롤 영역 — flex: 1로 남은 높이를 모두 차지 */}
+            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0 }}>
             {/* REQ-UX-008-011 D2: closestCorners — 빈 카테고리 포함 droppable 경계 인식
                 SPEC-UX-011: accessibility announcements + autoScroll 엣지 임계값 조정 */}
             <DndContext
@@ -1067,26 +1073,27 @@ export default function WidgetLayout({
               document.body,
               )}
             </DndContext>
+            </div>{/* 스크롤 영역 닫기 */}
           </div>
           )}
 
-          {/* Todo 위젯 */}
+          {/* Todo 위젯 — height: 100%로 셀 높이를 정확히 채움 */}
           {isWidgetVisible('todo') && (
-            <div key="todo" style={{ overflow: 'auto' }}>
+            <div key="todo" style={{ height: '100%', overflow: 'hidden' }}>
               <TodoWidget />
             </div>
           )}
 
-          {/* Notes 위젯 */}
+          {/* Notes 위젯 — height: 100%로 셀 높이를 정확히 채움 */}
           {isWidgetVisible('notes') && (
-            <div key="notes" style={{ overflow: 'auto' }}>
+            <div key="notes" style={{ height: '100%', overflow: 'hidden' }}>
               <NotesWidget />
             </div>
           )}
 
-          {/* Feed 위젯 — SPEC-WIDGET-003 */}
+          {/* Feed 위젯 — SPEC-WIDGET-003, height: 100%로 셀 높이를 정확히 채움 */}
           {isWidgetVisible('feed') && (
-            <div key="feed" style={{ overflow: 'hidden' }}>
+            <div key="feed" style={{ height: '100%', overflow: 'hidden' }}>
               <FeedWidget />
             </div>
           )}

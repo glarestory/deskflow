@@ -21,16 +21,19 @@ export interface WidgetLayout {
   minH?: number // 최소 행 높이
 }
 
-// SPEC 기본 레이아웃 (12열 그리드 기반)
-// @MX:NOTE: [AUTO] 간격 최적화 — clock/search h:2, bookmarks 바로 아래 배치로 시각적 갭 최소화
+// Direction A — "Search + Favorites 중심 허브" 레이아웃 (12열 그리드 기반)
+// 계층 구조: clock(좌상단 컴팩트) → search(상단 와이드 바) → bookmarks(주요 히어로 타일)
+//           → todo/notes(우측 레일 스택) → feed(하단 전폭 스트림)
+// @MX:NOTE: [AUTO] 검색+즐겨찾기 중심 허브 — bookmarks를 w8 h6 주요 타일로,
+//           clock을 w3으로 축소, search를 w9 프로미넌트 바로 배치, feed를 하단 전폭으로
 export const DEFAULT_LAYOUT: WidgetLayout[] = [
-  { i: 'clock',     x: 0, y: 0, w: 5, h: 2, minW: 3, minH: 2 },
-  { i: 'search',    x: 5, y: 0, w: 7, h: 2, minW: 4, minH: 2 },
-  { i: 'bookmarks', x: 0, y: 2, w: 8, h: 5, minW: 4, minH: 4 },
-  { i: 'todo',      x: 8, y: 2, w: 4, h: 5, minW: 3, minH: 3 },
-  { i: 'notes',     x: 8, y: 7, w: 4, h: 4, minW: 3, minH: 3 },
-  // SPEC-WIDGET-003: RSS 뉴스 피드 위젯
-  { i: 'feed',      x: 0, y: 7, w: 8, h: 4, minW: 4, minH: 3 },
+  { i: 'clock',     x: 0, y: 0, w: 3,  h: 2, minW: 2, minH: 2 },
+  { i: 'search',    x: 3, y: 0, w: 9,  h: 2, minW: 4, minH: 2 },
+  { i: 'bookmarks', x: 0, y: 2, w: 8,  h: 6, minW: 4, minH: 4 },
+  { i: 'todo',      x: 8, y: 2, w: 4,  h: 3, minW: 3, minH: 2 },
+  { i: 'notes',     x: 8, y: 5, w: 4,  h: 3, minW: 3, minH: 2 },
+  // SPEC-WIDGET-003: RSS 뉴스 피드 위젯 — 하단 전폭 스트림
+  { i: 'feed',      x: 0, y: 8, w: 12, h: 3, minW: 4, minH: 3 },
 ]
 
 interface LayoutState {
