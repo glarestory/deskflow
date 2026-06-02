@@ -886,7 +886,7 @@ export default function WidgetLayout({
               SPEC-UX-011: data-widget-handle 속성 추가
               위젯 표시/숨김 통합 — isWidgetVisible 가드 적용 */}
           {isWidgetVisible('search') && (
-            <div key="search" className="widget-drag-handle" style={{ background: 'transparent', position: 'relative', height: '100%' }}>
+            <div key="search" className="widget-drag-handle" style={{ background: 'transparent', position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <DragHandleSlot
                 level="widget"
                 ariaLabel="위젯 이동: 검색"

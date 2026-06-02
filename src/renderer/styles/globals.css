@@ -162,19 +162,31 @@ body.is-edit-mode [data-link-handle] {
 }
 
 /* 레벨 A: 위젯 시각 마커 (data-widget-handle) — opacity 토글 전용 */
+/* 비편집 모드에서는 그립이 레이아웃 공간을 차지하지 않도록 collapse
+   (이전: min 44px가 항상 적용되어 시계/검색/위젯 제목 콘텐츠를 밀어냈음) */
 [data-widget-handle] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
+  width: 0;
+  height: 0;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
   color: var(--text-muted);
   opacity: 0;
   pointer-events: none;
-  transition: opacity .15s ease-out;
+  transition: opacity .15s ease-out, width .15s ease-out;
   flex-shrink: 0;
 }
+/* 편집 모드에서만 44px 터치 히트 영역 + 표시 */
 body.is-edit-mode [data-widget-handle] {
+  width: auto;
+  height: auto;
+  min-width: 44px;
+  min-height: 44px;
+  overflow: visible;
   opacity: 1;
   pointer-events: auto;
 }
