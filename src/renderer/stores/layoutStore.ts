@@ -27,13 +27,13 @@ export interface WidgetLayout {
 // @MX:NOTE: [AUTO] 검색+즐겨찾기 중심 허브 — bookmarks를 w8 h6 주요 타일로,
 //           clock을 w3으로 축소, search를 w9 프로미넌트 바로 배치, feed를 하단 전폭으로
 export const DEFAULT_LAYOUT: WidgetLayout[] = [
-  { i: 'clock',     x: 0, y: 0, w: 3,  h: 2, minW: 2, minH: 2 },
-  { i: 'search',    x: 3, y: 0, w: 9,  h: 2, minW: 4, minH: 2 },
-  { i: 'bookmarks', x: 0, y: 2, w: 8,  h: 6, minW: 4, minH: 4 },
-  { i: 'todo',      x: 8, y: 2, w: 4,  h: 3, minW: 3, minH: 2 },
-  { i: 'notes',     x: 8, y: 5, w: 4,  h: 3, minW: 3, minH: 2 },
-  // SPEC-WIDGET-003: RSS 뉴스 피드 위젯 — 하단 전폭 스트림
-  { i: 'feed',      x: 0, y: 8, w: 12, h: 3, minW: 4, minH: 3 },
+  { i: 'clock',     x: 0, y: 0,  w: 3,  h: 2, minW: 2, minH: 2 },
+  { i: 'search',    x: 3, y: 0,  w: 9,  h: 2, minW: 4, minH: 2 },
+  { i: 'bookmarks', x: 0, y: 2,  w: 8,  h: 9, minW: 4, minH: 4 },
+  { i: 'todo',      x: 8, y: 2,  w: 4,  h: 5, minW: 3, minH: 2 },
+  { i: 'notes',     x: 8, y: 7,  w: 4,  h: 4, minW: 3, minH: 2 },
+  // SPEC-WIDGET-003: RSS 뉴스 피드 위젯 — 하단 전폭 스트림 (2배 높이)
+  { i: 'feed',      x: 0, y: 11, w: 12, h: 6, minW: 4, minH: 3 },
 ]
 
 interface LayoutState {
