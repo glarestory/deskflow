@@ -859,7 +859,7 @@ export default function WidgetLayout({
           margin={GRID_MARGIN}
           onLayoutChange={onLayoutChangeGuarded}
           onBreakpointChange={(bp) => setCurrentBreakpoint(bp)}
-          draggableHandle="[data-widget-handle]"
+          draggableHandle=".widget-drag-handle"
           isResizable={isEditing && !isMobile && !isMobileBreakpoint}
           isDraggable={isEditing && !isMobile && !isMobileBreakpoint}
           measureBeforeMount={false}
@@ -871,7 +871,7 @@ export default function WidgetLayout({
               SPEC-UX-011: data-widget-handle 속성 추가 — draggableHandle 셀렉터 [data-widget-handle] 매칭
               위젯 표시/숨김(widgetVisibilityStore) 통합 — isWidgetVisible 가드 적용 */}
           {isWidgetVisible('clock') && (
-            <div key="clock" className="widget-drag-handle" data-widget-handle style={{ background: 'transparent', position: 'relative', height: '100%' }}>
+            <div key="clock" className="widget-drag-handle" style={{ background: 'transparent', position: 'relative', height: '100%' }}>
               <DragHandleSlot
                 level="widget"
                 ariaLabel="위젯 이동: 시계"
@@ -886,7 +886,7 @@ export default function WidgetLayout({
               SPEC-UX-011: data-widget-handle 속성 추가
               위젯 표시/숨김 통합 — isWidgetVisible 가드 적용 */}
           {isWidgetVisible('search') && (
-            <div key="search" className="widget-drag-handle" data-widget-handle style={{ background: 'transparent', position: 'relative', height: '100%' }}>
+            <div key="search" className="widget-drag-handle" style={{ background: 'transparent', position: 'relative', height: '100%' }}>
               <DragHandleSlot
                 level="widget"
                 ariaLabel="위젯 이동: 검색"
@@ -923,7 +923,6 @@ export default function WidgetLayout({
                 padding: 14px 20px로 위아래 패딩 확보, borderBottom으로 내용과 구분 */}
             <div
               className="widget-drag-handle"
-              data-widget-handle
               style={{
                 display: 'flex',
                 alignItems: 'center',
